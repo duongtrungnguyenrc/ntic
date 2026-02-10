@@ -20,7 +20,7 @@ export function listCommand(program: Command): void {
          try {
             console.log(chalk.cyan("\nModule Registry\n"));
 
-            const projectRoot = options.project ? path.resolve(options.project) : process.cwd();
+            const projectRoot: string = options.project ? path.resolve(options.project) : process.cwd();
 
             // Detect NestJS project
             let config;

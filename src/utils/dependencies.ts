@@ -105,30 +105,3 @@ export async function updateProjectDependencies(projectRoot: string, dependencyG
    await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
    console.log(chalk.green("✓ Dependencies updated in package.json"));
 }
-
-export function printDependencyInfo(graph: DependencyGraph): void {
-   console.log(chalk.cyan("\nDependency Resolution Order:"));
-   graph.order.forEach((moduleName: string, index: number) => {
-      const metadata: ModuleMetadata = graph.modules.get(moduleName)!;
-      console.log(chalk.gray(`  ${index + 1}. ${moduleName}@${metadata.version}`));
-
-      if (metadata.dependentModules && metadata.dependentModules.length > 0) {
-         console.log(chalk.gray(`     Depends on: ${metadata.dependentModules.join(", ")}`));
-      }
-   });
-
-   const allDeps = new Set<string>();
-   const allDevDeps = new Set<string>();
-
-   for (const metadata of graph.modules.values()) {
-      if (metadata.dependencies) {
-         Object.keys(metadata.dependencies).forEach((dep: string) => allDeps.add(dep));
-      }
-      if (metadata.devDependencies) {
-         Object.keys(metadata.devDependencies).forEach((dep: string) => allDevDeps.add(dep));
-      }
-   }
-
-   console.log(chalk.cyan(`\nTotal Dependencies: ${allDeps.size}`));
-   console.log(chalk.cyan(`Total Dev Dependencies: ${allDevDeps.size}`));
-}

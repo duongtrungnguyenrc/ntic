@@ -2,7 +2,7 @@ import * as path from "node:path";
 import * as fs from "fs-extra";
 import chalk from "chalk";
 
-import { NestJSProjectConfig, EnvironmentVariable } from "../types/module";
+import { NestJSProjectConfig, EnvironmentVariable, ModuleMetadata } from "../types/module";
 
 export async function detectNestJSProject(projectRoot: string = process.cwd()): Promise<NestJSProjectConfig> {
    const packageJsonPath: string = path.join(projectRoot, "package.json");
@@ -23,7 +23,7 @@ export async function detectNestJSProject(projectRoot: string = process.cwd()): 
    }
 
    const srcDir: string = path.join(projectRoot, "src");
-   const libDir: string = path.join(srcDir, "lib");
+   const libDir: string = path.join(projectRoot, "lib");
    const envPath: string = path.join(projectRoot, ".env");
    const envExamplePath: string = path.join(projectRoot, ".env.example");
 
@@ -35,6 +35,17 @@ export async function detectNestJSProject(projectRoot: string = process.cwd()): 
       envPath,
       envExamplePath,
    };
+}
+
+export function getInstallationPath(config: NestJSProjectConfig, place: ModuleMetadata["installationPlace"]) {
+   switch (place) {
+      case "src-root":
+         return config.projectRoot;
+      case "lib":
+         return config.libDir;
+      default:
+         return config.srcDir;
+   }
 }
 
 export async function ensureLibDirectory(config: NestJSProjectConfig): Promise<void> {
@@ -58,7 +69,7 @@ export async function setupPathAlias(config: NestJSProjectConfig, alias: string 
          tsconfigContent.compilerOptions.paths = {};
       }
 
-      const libRelativePath = path.relative(path.dirname(config.tsconfigPath), config.libDir);
+      const libRelativePath: string = path.relative(path.dirname(config.tsconfigPath), config.libDir);
 
       tsconfigContent.compilerOptions.paths[`${alias}/*`] = [`${libRelativePath}/*`];
 
@@ -142,7 +153,22 @@ export async function getInstalledModules(config: NestJSProjectConfig): Promise<
    }
 }
 
-export async function moduleExists(config: NestJSProjectConfig, moduleName: string): Promise<boolean> {
-   const modulePath = path.join(config.libDir, moduleName);
-   return fs.pathExists(modulePath);
+export async function moduleExists(
+   config: NestJSProjectConfig,
+   moduleName: string
+): Promise<boolean> {
+
+   const locations: string[] = [
+      config.srcDir,
+      config.libDir,
+      config.projectRoot
+   ];
+
+   for (const basePath of locations) {
+      if (await fs.pathExists(path.join(basePath, moduleName))) {
+         return true;
+      }
+   }
+
+   return false;
 }

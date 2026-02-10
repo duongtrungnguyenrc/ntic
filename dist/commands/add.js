@@ -40,17 +40,17 @@ exports.addCommand = addCommand;
 const path = __importStar(require("node:path"));
 const inquirer_1 = __importDefault(require("inquirer"));
 const chalk_1 = __importDefault(require("chalk"));
+const cache_1 = require("../utils/cache");
 const nestjs_1 = require("../utils/nestjs");
-const dependencies_1 = require("../utils/dependencies");
-const gitlab_1 = require("../utils/gitlab");
-const config_1 = require("../utils/config");
+const ntic_1 = require("../utils/ntic");
+const version_1 = require("../utils/version");
 function addCommand(program) {
     program
-        .command("add")
+        .command("add [version]")
         .description("Add modules to your NestJS project")
         .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
         .option("-m, --modules <names>", "Comma-separated module names to add")
-        .action(async (options) => {
+        .action(async (versionArg, options) => {
         try {
             console.log(chalk_1.default.cyan("\nAdd Modules to NestJS Project\n"));
             const projectRoot = options.project ? path.resolve(options.project) : process.cwd();
@@ -58,42 +58,48 @@ function addCommand(program) {
             console.log(chalk_1.default.blue("Detecting NestJS project..."));
             const config = await (0, nestjs_1.detectNestJSProject)(projectRoot);
             console.log(chalk_1.default.green(`✓ NestJS project detected at ${config.projectRoot}`));
-            // Check GitLab configuration
-            const gitlabUrl = await (0, config_1.getConfigValue)("gitlabUrl");
-            const modulesRegistry = await (0, config_1.getConfigValue)("modulesRegistry");
-            if (!gitlabUrl || !modulesRegistry) {
-                console.error(chalk_1.default.red("✗ GitLab not configured. Please run: ntic setup"));
-                process.exit(1);
+            // Determine NestJS version
+            let nestJsVersion = versionArg || (await (0, ntic_1.getNestJsVersionFromNtic)(projectRoot));
+            if (!nestJsVersion) {
+                nestJsVersion = await (0, version_1.detectNestJsVersion)(projectRoot);
             }
-            // Create GitLab client
-            const client = await (0, gitlab_1.createGitLabClient)();
-            // Get installed modules
-            console.log(chalk_1.default.blue("\nLoading available modules..."));
-            let availableModules = [];
-            let installedModules = [];
-            try {
-                availableModules = await client.listModules(modulesRegistry);
-                installedModules = await (0, nestjs_1.getInstalledModules)(config);
-            }
-            catch (error) {
-                console.error(chalk_1.default.red(`✗ Failed to load modules: ${error}`));
-                process.exit(1);
-            }
+            nestJsVersion = (0, version_1.normalizeVersion)(nestJsVersion);
+            console.log(chalk_1.default.cyan(`NestJS Version: v${nestJsVersion}`));
+            // Clone or update cache for this version
+            console.log(chalk_1.default.blue("\nSetting up module cache..."));
+            const cachedSrcPath = await (0, cache_1.cloneOrUpdateCache)(nestJsVersion);
+            // Get available modules from cache
+            console.log(chalk_1.default.blue("Loading available modules..."));
+            const availableModules = await (0, cache_1.listCachedModules)(nestJsVersion);
             console.log(chalk_1.default.green(`✓ Found ${availableModules.length} available modules`));
+            if (availableModules.length === 0) {
+                console.error(chalk_1.default.red("No modules available for this version"));
+                process.exit(1);
+            }
             // Filter out already installed modules
-            const modulesToChoose = availableModules.filter((m) => !installedModules.includes(m));
-            if (modulesToChoose.length === 0) {
-                console.log(chalk_1.default.yellow("All available modules are already installed."));
+            const installableModules = [];
+            for (const moduleName of availableModules) {
+                const installed = await (0, nestjs_1.moduleExists)(config, moduleName);
+                if (!installed) {
+                    installableModules.push(moduleName);
+                }
+            }
+            if (installableModules.length === 0) {
+                console.log(chalk_1.default.yellow("All available modules are already installed"));
                 return;
             }
-            // Load metadata for all available modules
-            console.log(chalk_1.default.blue("\nLoading module metadata..."));
-            const moduleMetadataMap = new Map();
+            // Load metadata for all modules
+            console.log(chalk_1.default.blue("Loading module metadata..."));
+            const moduleMetadataMap = new Map(); // all modules has metadata
+            const visibleModuleMetadataMap = new Map(); // just visible modules
             for (const moduleName of availableModules) {
                 try {
-                    const metadata = await client.getModuleMetadata(modulesRegistry, moduleName);
+                    const metadata = await (0, cache_1.getCachedModuleMetadata)(nestJsVersion, moduleName);
                     if (metadata) {
                         moduleMetadataMap.set(moduleName, metadata);
+                        if (metadata.visibility !== false) {
+                            visibleModuleMetadataMap.set(moduleName, metadata);
+                        }
                     }
                 }
                 catch {
@@ -106,9 +112,9 @@ function addCommand(program) {
                 selectedModules = options.modules
                     .split(",")
                     .map((m) => m.trim())
-                    .filter((m) => modulesToChoose.includes(m));
+                    .filter((m) => installableModules.includes(m));
                 if (selectedModules.length === 0) {
-                    console.error(chalk_1.default.red("✗ No valid modules specified"));
+                    console.error(chalk_1.default.red("No valid modules specified"));
                     process.exit(1);
                 }
             }
@@ -118,8 +124,8 @@ function addCommand(program) {
                         type: "checkbox",
                         name: "modules",
                         message: "Select modules to add:",
-                        choices: modulesToChoose.map((m) => {
-                            const metadata = moduleMetadataMap.get(m);
+                        choices: installableModules.map((m) => {
+                            const metadata = visibleModuleMetadataMap.get(m);
                             const description = metadata?.description || "No description";
                             return {
                                 name: `${m} - ${description}`,
@@ -136,56 +142,25 @@ function addCommand(program) {
                 ]);
                 selectedModules = answers.modules;
             }
-            // Resolve dependencies
-            console.log(chalk_1.default.blue("\nResolving module dependencies..."));
-            const dependencyGraph = await (0, dependencies_1.resolveDependencies)(selectedModules, moduleMetadataMap);
-            (0, dependencies_1.printDependencyInfo)(dependencyGraph);
-            // Confirm before proceeding
-            const confirmAnswer = await inquirer_1.default.prompt([
-                {
-                    type: "confirm",
-                    name: "proceed",
-                    message: "Proceed with installation?",
-                    default: true,
-                },
-            ]);
-            if (!confirmAnswer.proceed) {
-                console.log(chalk_1.default.yellow("Installation cancelled"));
-                return;
-            }
-            // Download and install modules
-            console.log(chalk_1.default.blue("\nInstalling modules..."));
-            for (const moduleName of dependencyGraph.order) {
-                if (await (0, nestjs_1.moduleExists)(config, moduleName)) {
-                    console.log(chalk_1.default.yellow(`⊘ Module ${moduleName} already installed, skipping`));
-                    continue;
-                }
-                try {
-                    await client.downloadModuleSource(modulesRegistry, moduleName, config.libDir);
-                    // Update environment variables
-                    const metadata = moduleMetadataMap.get(moduleName);
-                    if (metadata?.environmentVariables && metadata.environmentVariables.length > 0) {
-                        await (0, nestjs_1.updateEnvironmentVariables)(config, metadata.environmentVariables, true);
-                    }
-                }
-                catch (error) {
-                    console.error(chalk_1.default.red(`✗ Failed to install module ${moduleName}: ${error}`));
-                    throw error;
-                }
-            }
-            // Update project dependencies
-            await (0, dependencies_1.updateProjectDependencies)(projectRoot, dependencyGraph);
+            // Install modules
+            const installedModules = await (0, ntic_1.installModules)(cachedSrcPath, projectRoot, selectedModules, moduleMetadataMap);
             console.log(chalk_1.default.green("\nModules installed successfully!\n"));
             console.log(chalk_1.default.cyan("Installation Summary:"));
-            console.log(chalk_1.default.gray(`  Modules installed: ${dependencyGraph.order.join(", ")}`));
-            console.log(chalk_1.default.gray(`  Location: ${config.libDir}`));
+            console.log(chalk_1.default.gray(`  Modules installed: ${installedModules.join(", ")}`));
+            // Show installation locations
+            console.log(chalk_1.default.cyan("\nModule Locations:"));
+            for (const moduleName of installedModules) {
+                const metadata = moduleMetadataMap.get(moduleName);
+                const installDir = (0, nestjs_1.getInstallationPath)(config, metadata.installationPlace);
+                console.log(chalk_1.default.gray(`  ${moduleName}: ${installDir}`));
+            }
             console.log(chalk_1.default.cyan("\nNext Steps:"));
-            console.log(chalk_1.default.yellow("  1. Install npm dependencies: npm install"));
-            console.log(chalk_1.default.yellow("  2. Update .env file with required variables"));
-            console.log(chalk_1.default.yellow("  3. Import modules using the @lib alias in your code\n"));
+            console.log(chalk_1.default.yellow("  1. Run: npm install"));
+            console.log(chalk_1.default.yellow("  2. Update .env with module-specific variables"));
+            console.log(chalk_1.default.yellow("  3. Import and use modules in your code\n"));
         }
         catch (error) {
-            console.error(chalk_1.default.red(`✗ Failed to add modules: ${error}`));
+            console.error(chalk_1.default.red(`\n✗ Failed to add modules: ${error}\n`));
             process.exit(1);
         }
     });

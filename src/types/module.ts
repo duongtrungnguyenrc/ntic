@@ -1,6 +1,4 @@
-export type PlainObject = Record<string, any>;
-
-export type ModuleMetadata = {
+export interface ModuleMetadata {
    name: string;
    version: string;
    description?: string;
@@ -8,32 +6,50 @@ export type ModuleMetadata = {
    devDependencies?: Record<string, string>;
    peerDependencies?: Record<string, string>;
    environmentVariables?: EnvironmentVariable[];
+   installationPlace?: "src" | "lib" | "src-root";
    dependentModules?: string[];
-   path?: string;
-   gitlabUrl?: string;
-};
+   installWhenInit?: boolean;
+   visibility?: boolean;
+}
 
-export type EnvironmentVariable = {
+export interface EnvironmentVariable {
    name: string;
    description?: string;
    required: boolean;
    defaultValue?: string;
    example?: string;
-};
+}
 
-export type NestJSProjectConfig = {
+export interface NestJSProjectConfig {
    projectRoot: string;
    srcDir: string;
    libDir: string;
    tsconfigPath: string;
    envPath: string;
    envExamplePath: string;
-};
+}
 
-export type CLIConfig = {
+export interface CLIConfig {
    gitlabToken?: string;
    gitlabUrl?: string;
    sshKey?: string;
    repositoryUrl?: string;
    modulesRegistry?: string;
-};
+   defaultNestJsVersion?: string;
+}
+
+export interface NticConfig {
+   version: string;
+   modules: ModuleMetadata[];
+   createdAt: string;
+   updatedAt: string;
+}
+
+export interface VersionInfo {
+   version: string;
+   nestJsVersion: string;
+   latestCommit?: string;
+   cachedAt?: string;
+}
+
+export type PlainObject = Record<string, any>;

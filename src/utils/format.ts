@@ -54,8 +54,8 @@ export async function setupFormatCommand(projectRoot: string = process.cwd()): P
          packageJsonContent.scripts = {};
       }
 
-      packageJsonContent.scripts.format = 'prettier --write "src/**/*.ts"';
-      packageJsonContent.scripts.lint = 'eslint "{src,apps,libs,test}/**/*.ts" --fix';
+      packageJsonContent.scripts.format = 'prettier --write "src/**/*.ts" "lib/**/*.ts"';
+      packageJsonContent.scripts.lint = 'eslint "{src,apps,lib,test}/**/*.ts" --fix';
 
       await fs.writeJson(packageJsonPath, packageJsonContent, { spaces: 2 });
 

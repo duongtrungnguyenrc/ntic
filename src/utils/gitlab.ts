@@ -1,9 +1,9 @@
-import axios, { AxiosInstance } from "axios";
-import * as fs from "fs-extra";
-import * as path from "node:path";
+import axios, { AxiosInstance, AxiosResponse } from "axios";
 import chalk from "chalk";
+
 import { getConfigValue, setConfigValue } from "./config";
 import { ModuleMetadata } from "../types/module";
+import { LogResult, simpleGit, SimpleGit } from "simple-git";
 
 export class GitLabClient {
    private readonly client: AxiosInstance;
@@ -55,22 +55,38 @@ export class GitLabClient {
       }
    }
 
-   async cloneRepository(repositoryUrl: string, targetPath: string, depth: number = 1): Promise<void> {
-      const { simpleGit } = await import("simple-git");
-      const git = simpleGit();
+   async cloneSource(repositoryUrl: string, targetPath: string, version: number): Promise<void> {
+      const git: SimpleGit = simpleGit();
 
       try {
          console.log(chalk.blue(`Cloning from ${repositoryUrl}...`));
-         await git.clone(repositoryUrl, targetPath, ["--depth", depth.toString()]);
+         await git.clone(repositoryUrl, targetPath, [
+            "--depth",
+            "1",
+            "--branch",
+            `v${version}`,
+            "--filter",
+            "blob:none",
+         ]);
+
          console.log(chalk.green("✓ Repository cloned successfully"));
       } catch (error) {
          throw new Error(`Failed to clone repository: ${error}`);
       }
    }
 
+   async updateSource(targetPath: string, version: number): Promise<LogResult> {
+      const git: SimpleGit = simpleGit(targetPath);
+      await git.fetch();
+      await git.checkout(`v${version}`);
+      await git.pull();
+
+      return git.log();
+   }
+
    async getModuleMetadata(projectId: string, moduleName: string): Promise<ModuleMetadata> {
       try {
-         const metadataJson = await this.getProjectFile(projectId, `lib/${moduleName}/module.json`);
+         const metadataJson = await this.getProjectFile(projectId, `src/${moduleName}/module.json`);
          return JSON.parse(metadataJson);
       } catch {
          throw new Error(`Failed to fetch module metadata for ${moduleName}`);
@@ -80,7 +96,7 @@ export class GitLabClient {
    async listModules(projectId: string): Promise<string[]> {
       try {
          const response = await this.client.get(
-            `/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=lib`,
+            `/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=src`,
          );
          return response.data.filter((item: any) => item.type === "tree").map((item: any) => item.name);
       } catch (error) {
@@ -89,48 +105,15 @@ export class GitLabClient {
    }
 
    async getProjectCloneUrl(projectId: string): Promise<string> {
-      const res = await this.client.get(`/api/v4/projects/${encodeURIComponent(projectId)}`);
+      const res: AxiosResponse = await this.client.get(`/api/v4/projects/${encodeURIComponent(projectId)}`);
 
       return res.data.http_url_to_repo;
-   }
-
-   async downloadModuleSource(projectId: string, moduleName: string, targetPath: string): Promise<void> {
-      try {
-         const { simpleGit } = await import("simple-git");
-         const git = simpleGit();
-
-         const tempDir = path.join(targetPath, ".temp");
-         await fs.ensureDir(tempDir);
-
-         const repoUrl = await this.getProjectCloneUrl(projectId);
-
-         console.log(chalk.blue(`Downloading module ${moduleName}...`));
-
-         await git.clone(repoUrl, tempDir, ["--depth", "1", "--filter=blob:none", "--sparse"]);
-
-         const gitClient = simpleGit(tempDir);
-         await gitClient.raw(["sparse-checkout", "set", `lib/${moduleName}`]);
-
-         const sourceDir = path.join(tempDir, "lib", moduleName);
-         const destDir = path.join(targetPath, moduleName);
-
-         if (!(await fs.pathExists(sourceDir))) {
-            throw new Error(`Module directory not found at lib/${moduleName}`);
-         }
-
-         await fs.copy(sourceDir, destDir);
-         await fs.remove(tempDir);
-
-         console.log(chalk.green(`✓ Module ${moduleName} downloaded successfully`));
-      } catch (error: any) {
-         throw new Error(`Failed to download module: ${error.message || error}`);
-      }
    }
 }
 
 export async function createGitLabClient(): Promise<GitLabClient> {
-   const gitlabUrl = (await getConfigValue("gitlabUrl")) || "https://gitlab.com";
-   const token = await getConfigValue("gitlabToken");
+   const gitlabUrl: string = (await getConfigValue("gitlabUrl")) || "https://gitlab.com";
+   const token: string | undefined = await getConfigValue("gitlabToken");
 
    const client = new GitLabClient(gitlabUrl);
 

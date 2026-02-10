@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectNestJSProject = detectNestJSProject;
+exports.getInstallationPath = getInstallationPath;
 exports.ensureLibDirectory = ensureLibDirectory;
 exports.setupPathAlias = setupPathAlias;
 exports.updateEnvironmentVariables = updateEnvironmentVariables;
@@ -59,7 +60,7 @@ async function detectNestJSProject(projectRoot = process.cwd()) {
         throw new Error("tsconfig.json not found");
     }
     const srcDir = path.join(projectRoot, "src");
-    const libDir = path.join(srcDir, "lib");
+    const libDir = path.join(projectRoot, "lib");
     const envPath = path.join(projectRoot, ".env");
     const envExamplePath = path.join(projectRoot, ".env.example");
     return {
@@ -70,6 +71,16 @@ async function detectNestJSProject(projectRoot = process.cwd()) {
         envPath,
         envExamplePath,
     };
+}
+function getInstallationPath(config, place) {
+    switch (place) {
+        case "src-root":
+            return config.projectRoot;
+        case "lib":
+            return config.libDir;
+        default:
+            return config.srcDir;
+    }
 }
 async function ensureLibDirectory(config) {
     try {
@@ -158,7 +169,16 @@ async function getInstalledModules(config) {
     }
 }
 async function moduleExists(config, moduleName) {
-    const modulePath = path.join(config.libDir, moduleName);
-    return fs.pathExists(modulePath);
+    const locations = [
+        config.srcDir,
+        config.libDir,
+        config.projectRoot
+    ];
+    for (const basePath of locations) {
+        if (await fs.pathExists(path.join(basePath, moduleName))) {
+            return true;
+        }
+    }
+    return false;
 }
 //# sourceMappingURL=nestjs.js.map

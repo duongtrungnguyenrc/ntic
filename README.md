@@ -1,20 +1,29 @@
-# NestJS Template Injection CLI
+# NTIC - NestJS Template Integration CLI
 
-A powerful CLI tool to integrate pre-written NestJS module boilerplates from your internal GitLab repository.
+A powerful CLI tool to manage version-based NestJS module boilerplates from a centralized GitLab repository with local caching and smart dependency resolution.
 
-## Features
+## Key Features
 
-- **Setup Command**: Configure GitLab authentication (Token or SSH)
-- **Init Command**: Initialize NestJS projects for module integration
-  - Automatically creates `src/lib` directory
-  - Sets up path aliases in `tsconfig.json`
-  - Manages environment variables
-- **Add Command**: Install modules with automatic dependency resolution
-  - Interactive module selection
-  - Dependency graph resolution (installs dependent modules automatically)
-  - Automatic package.json updates
-  - Environment variable management
-- **List Command**: View available and installed modules
+### Version-Based Module Management
+- Support for multiple NestJS versions (e.g., v10, v11, v12+)
+- Organize modules in GitLab with version-specific branches (`v10`, `v11`, etc.)
+- Use `init@version` and `add@version` syntax to work with specific versions
+
+### Smart Local Caching
+- Automatic caching of modules in `~/.ntic` directory
+- First-time setup clones the entire version repository
+- Subsequent uses check for updates via latest commit comparison
+- Save bandwidth by avoiding repeated downloads
+
+### Metadata Management
+- **ntic.json** - Stores project configuration and installed modules
+- Tracks NestJS version and all installed modules with metadata
+- Replaces module.json in code for cleaner projects
+
+### Environment-Aware Installation
+- **installationPlace** - Control where modules go (`src` or `lib`)
+- **installWhenInit** - Auto-install modules during `init` (perfect for "common" modules)
+- Automatic environment variable management
 
 ## Installation
 
@@ -22,120 +31,153 @@ A powerful CLI tool to integrate pre-written NestJS module boilerplates from you
 npm install -g @sugarnest/ntic
 ```
 
-Or for development:
+Or use directly:
 
 ```bash
-cd cli
-npm install
-npm run build
-npm start
+npx @sugarnest/ntic <command>
 ```
 
-## Usage
+> ⚠️ **Warning:** Currently only support self setup method below
 
-### 1. Initial Setup
+Clone cli tool on repository
 
-Configure your GitLab connection and authentication:
+```bash
+git clone ntic-repo-url
+```
+
+Install dependencies
+
+```bash
+npm install
+```
+
+Build Cli
+
+```bash
+npm run build
+```
+
+Link with bin
+
+```bash
+npm link
+```
+
+## Setup
+
+### 1. Configure GitLab Access
 
 ```bash
 ntic setup
 ```
 
-This command will prompt you for:
-- GitLab server URL (default: https://gitlab.com)
-- Authentication method (Personal Access Token or SSH Key)
-- GitLab project ID/path where modules are stored
+Choose between:
+- **Personal Access Token** - Recommended for CI/CD environments
+- **SSH Key** - Better for local development
 
-### 2. Initialize Your Project
+### 2. Configure Repository
 
-Initialize a NestJS project to use modules:
+```bash
+ntic setup
+```
+
+Provide:
+- GitLab URL (e.g., `https://gitlab.com`)
+- Repository URL (e.g., `https://gitlab.com/group/modules-repo`)
+
+## Repository Structure
+
+```
+modules-repo/
+  v10/
+    package.json
+    tsconfig.json
+    src/
+      common/
+        module.json
+        ...
+      auth/
+        module.json
+        ...
+      database/
+        module.json
+        ...
+
+  v11/
+    package.json
+    tsconfig.json
+    src/
+      common/
+        module.json
+        ...
+```
+
+## Usage
+
+### Initialize a Project
+
+Detect version from package.json and initialize:
 
 ```bash
 ntic init
 ```
 
-Or with specific options:
+Explicitly set version:
 
 ```bash
-ntic init --project /path/to/project --alias @lib
+ntic init@11
 ```
 
-This command will:
-- Detect your NestJS project
-- Create `src/lib` directory
-- Add path alias to `tsconfig.json`
-- Initialize `.env` and `.env.example` files
+This command:
+- Creates `src/lib` directory
+- Sets up `@lib` path alias in `tsconfig.json`
+- Creates `ntic.json` with version information
+- Auto-installs modules with `installWhenInit: true` (like "common")
+- Sets up example environment variables
 
-### 3. Add Modules
+### Add Modules
 
-Add modules to your project:
+Add modules interactively (uses version from ntic.json):
 
 ```bash
 ntic add
 ```
 
-Or directly specify modules:
+Add from specific version:
 
 ```bash
-ntic add --modules auth,database --project /path/to/project
+ntic add@10
 ```
 
-The command will:
-- List available modules
-- Show module descriptions and dependencies
-- Resolve all dependency trees
-- Download module source code
-- Update `package.json` with dependencies
-- Update environment variable files
+Add specific modules:
 
-### 4. List Modules
+```bash
+ntic add@11 -m auth,database,cache
+```
 
-View available and installed modules:
+### List Modules
+
+View all available modules for a version:
 
 ```bash
 ntic list
 ```
 
-Options:
-- `--available`: Show only available modules
-- `--installed`: Show only installed modules
-- `--project <path>`: Specify project path
+List specific version modules:
 
-## Module Structure
-
-Each module should follow this structure in your GitLab repository:
-
-```
-modules/
-├── auth/
-│   ├── module.json          # Metadata
-│   ├── src/
-│   │   ├── auth.module.ts
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
-│   │   └── ...
-│   └── package.json         # Module-specific deps (optional)
-├── database/
-│   ├── module.json
-│   ├── src/
-│   │   └── ...
-│   └── package.json
-└── cache/
-    ├── module.json
-    ├── src/
-    │   └── ...
-    └── package.json
+```bash
+ntic list@10
 ```
 
-### Module Metadata (module.json)
+## Module Metadata Format
 
-Each module must include a `module.json` file with metadata:
+Create `module.json` in each module directory:
 
 ```json
 {
   "name": "auth",
   "version": "1.0.0",
-  "description": "Authentication module with JWT support",
+  "description": "JWT authentication with Passport.js",
   "dependencies": {
     "@nestjs/jwt": "^11.0.0",
     "jsonwebtoken": "^9.0.0"
@@ -155,128 +197,200 @@ Each module must include a `module.json` file with metadata:
     },
     {
       "name": "JWT_EXPIRATION",
-      "description": "JWT token expiration time",
+      "description": "Token expiration time",
       "required": false,
       "defaultValue": "24h",
       "example": "24h"
     }
   ],
-  "dependentModules": ["database"]
+  "dependentModules": ["common"],
+  "installationPlace": "lib",
+  "installWhenInit": false
 }
 ```
 
-## Configuration
+### Metadata Fields
 
-Configuration is stored in `~/.ntic/config.json`:
+- **name** (string, required): Module identifier
+- **version** (string, required): Semantic version
+- **description** (string, optional): Module description
+- **dependencies** (object): Production NPM packages
+- **devDependencies** (object): Development NPM packages
+- **peerDependencies** (object): Packages consuming project must have
+- **environmentVariables** (array): Environment variables needed
+- **dependentModules** (array): Other modules this depends on
+- **installationPlace** (`"src" | "lib"`, default: `"lib"`):
+  - `"lib"` → `src/lib/{moduleName}`
+  - `"src"` → `src/{moduleName}`
+- **installWhenInit** (boolean, default: false):
+  - Set `true` to auto-install during `init`
+  - Perfect for "common" utilities every project needs
+
+## ntic.json Format
+
+Created automatically during initialization:
 
 ```json
 {
-  "gitlabUrl": "https://gitlab.com",
-  "gitlabToken": "glpat-xxxxxxxxxxxxx",
-  "modulesRegistry": "company/nestjs-modules",
-  "sshKey": "/home/user/.ssh/id_rsa"
+  "version": "11",
+  "modules": [
+    {
+      "name": "common",
+      "version": "1.0.0",
+      "installationPlace": "src",
+      "installWhenInit": true
+    },
+    {
+      "name": "auth",
+      "version": "1.0.0",
+      "installationPlace": "lib"
+    }
+  ],
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:35:00Z"
 }
 ```
 
-## Example Workflow
+## Workflow Example
+
+### 1. Create New NestJS Project
 
 ```bash
-# 1. Setup CLI
-ntic setup
-# Follow prompts to configure GitLab
-
-# 2. Create/Navigate to NestJS project
-cd my-nestjs-app
-
-# 3. Initialize project
-ntic init
-
-# 4. View available modules
-ntic list
-
-# 5. Add modules
-ntic add
-# Select: auth, database, cache
-
-# 6. Install dependencies
-npm install
-
-# 7. Update .env with required variables
-# Edit .env file and add required values
-
-# 8. Use modules in your code
-import { AuthService } from '@lib/auth/auth.service';
+nest new my-app
+cd my-app
 ```
 
-## API Reference
+### 2. Set Up NTIC
 
-### setupCommand
-Configures GitLab authentication and CLI settings.
+```bash
+# Configure GitLab once
+ntic setup
 
-Options:
-- Interactive prompts for authentication method
-- Support for both token and SSH key authentication
+# Initialize project
+ntic init
+# → Creates ntic.json with v11
+# → Auto-installs common module
+# → Sets up environment variables
+```
 
-### initCommand
-Initializes a NestJS project for module integration.
+### 3. Add More Modules
 
-Options:
-- `-p, --project <path>`: Project directory (default: current)
-- `-a, --alias <alias>`: Path alias name (default: @lib)
+```bash
+ntic add
+# → Shows modules from cache
+# → Lets you choose what to add
+# → Installs dependencies
+# → Updates ntic.json
+```
 
-### addCommand
-Adds modules to a NestJS project with automatic dependency resolution.
+### 4. Manage Versions
 
-Options:
-- `-p, --project <path>`: Project directory (default: current)
-- `-m, --modules <names>`: Comma-separated module names (interactive if not provided)
+```bash
+# Update cache (automatic, but can force)
+ntic add@11
+```
 
-### listCommand
-Lists available and installed modules.
+## Common Patterns
 
-Options:
-- `-p, --project <path>`: Project directory (default: current)
-- `-a, --available`: Show only available modules
-- `-i, --installed`: Show only installed modules
+### Auto-Install "Common" Utilities
+
+Set `installWhenInit: true` in common module:
+
+```bash
+ntic init
+# → Automatically installs common
+# → Logger, validators, decorators ready to use
+```
+
+### Version-Specific Features
+
+Create version-specific modules:
+
+```bash
+# Repository branches: v10, v11, v12
+# Each with slightly different implementations
+
+ntic init@10    # Get v10-specific modules
+ntic init@12    # Get v12-specific modules
+```
+
+### Dependency Chains
+
+Modules can depend on others:
+
+```json
+{
+  "name": "auth",
+  "dependentModules": ["database", "cache", "common"]
+}
+```
+
+When installing auth, all dependencies are automatically installed in correct order.
 
 ## Troubleshooting
 
+### Cache Not Updating
+
+Clear and rebuild:
+
+```bash
+ntic cache-clear 11
+ntic add@11
+```
+
 ### GitLab Authentication Failed
-- Verify your GitLab token has `read_repository` scope
-- Check GitLab URL is correct (include https://)
-- Try `ntic setup` again to update credentials
+
+Re-run setup:
+
+```bash
+ntic setup
+# Choose different auth method or update token
+```
 
 ### Module Not Found
-- Verify module exists in GitLab repository
-- Check module path structure matches expected format
-- Run `ntic list` to see available modules
 
-### Path Alias Not Working
-- Ensure `tsconfig.json` was updated correctly
-- Verify your IDE recognizes the path alias
-- Try rebuilding your project
+Verify repository structure and version:
 
-### Dependency Conflicts
-- Check for conflicting versions in dependent modules
-- Review `package.json` for manual adjustments
-- Consider updating dependent modules
+```bash
+ntic list@11     # Check what modules exist for v11
+ntic cache-info  # Verify cache is populated
+```
+
+### Permission Denied in ~/.ntic
+
+Ensure permissions are correct:
+
+```bash
+ls -la ~/.ntic
+# Should be writable by current user
+```
+
+## Environment Variables
+
+NTIC uses these environment variables:
+
+- `NTIC_CACHE_DIR` - Override default cache location (default: `~/.ntic`)
+- `NTIC_CONFIG_DIR` - Override config location (default: `~/.ntic/config`)
 
 ## Development
 
-```bash
-# Install dependencies
-npm install
+### Contributing Modules
 
-# Build TypeScript
-npm run build
+1. Create module folder: `src/modules/my-module/`
+2. Add `module.json` with metadata
+3. Add source code
+4. Push to appropriate version branch
+5. Modules auto-available after push
 
-# Watch mode
-npm run watch
+## CLI Command Reference
 
-# Run CLI locally
-npm run dev -- <command>
+```
+ntic setup                    Setup GitLab authentication
+ntic init [version]          Initialize NestJS project
+ntic add [version]           Add modules to project
+ntic list [version]          List available/installed modules
 ```
 
-## License
+## Support
 
-Internal Company License
+For issues or feature requests, contact with Sugar

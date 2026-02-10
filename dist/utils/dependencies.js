@@ -39,7 +39,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveDependencies = resolveDependencies;
 exports.mergeDependencies = mergeDependencies;
 exports.updateProjectDependencies = updateProjectDependencies;
-exports.printDependencyInfo = printDependencyInfo;
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
@@ -116,27 +115,5 @@ async function updateProjectDependencies(projectRoot, dependencyGraph) {
     }
     await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
     console.log(chalk_1.default.green("✓ Dependencies updated in package.json"));
-}
-function printDependencyInfo(graph) {
-    console.log(chalk_1.default.cyan("\nDependency Resolution Order:"));
-    graph.order.forEach((moduleName, index) => {
-        const metadata = graph.modules.get(moduleName);
-        console.log(chalk_1.default.gray(`  ${index + 1}. ${moduleName}@${metadata.version}`));
-        if (metadata.dependentModules && metadata.dependentModules.length > 0) {
-            console.log(chalk_1.default.gray(`     Depends on: ${metadata.dependentModules.join(", ")}`));
-        }
-    });
-    const allDeps = new Set();
-    const allDevDeps = new Set();
-    for (const metadata of graph.modules.values()) {
-        if (metadata.dependencies) {
-            Object.keys(metadata.dependencies).forEach((dep) => allDeps.add(dep));
-        }
-        if (metadata.devDependencies) {
-            Object.keys(metadata.devDependencies).forEach((dep) => allDevDeps.add(dep));
-        }
-    }
-    console.log(chalk_1.default.cyan(`\nTotal Dependencies: ${allDeps.size}`));
-    console.log(chalk_1.default.cyan(`Total Dev Dependencies: ${allDevDeps.size}`));
 }
 //# sourceMappingURL=dependencies.js.map

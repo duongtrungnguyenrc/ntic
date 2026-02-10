@@ -82,8 +82,8 @@ async function setupFormatCommand(projectRoot = process.cwd()) {
         if (!packageJsonContent.scripts) {
             packageJsonContent.scripts = {};
         }
-        packageJsonContent.scripts.format = 'prettier --write "src/**/*.ts"';
-        packageJsonContent.scripts.lint = 'eslint "{src,apps,libs,test}/**/*.ts" --fix';
+        packageJsonContent.scripts.format = 'prettier --write "src/**/*.ts" "lib/**/*.ts"';
+        packageJsonContent.scripts.lint = 'eslint "{src,apps,lib,test}/**/*.ts" --fix';
         await fs.writeJson(packageJsonPath, packageJsonContent, { spaces: 2 });
         console.log(chalk_1.default.green("✓ Format command `npm run format` configured"));
     }
