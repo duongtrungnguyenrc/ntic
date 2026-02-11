@@ -1,5 +1,5 @@
-import { ModuleMetadata } from "../types/module";
 import { LogResult } from "simple-git";
+import { ModuleMetadata } from "../types/module";
 export declare class GitLabClient {
     private readonly client;
     private readonly baseUrl;

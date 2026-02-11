@@ -75,8 +75,6 @@ export class GitLabClient {
          `https://oauth2:${token}@`
       );
 
-      console.log(parsedRepoUrl, "PARSD");
-
       try {
          console.log(chalk.blue(`Cloning from ${repositoryUrl}...`));
 

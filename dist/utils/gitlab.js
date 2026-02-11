@@ -5,10 +5,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GitLabClient = void 0;
 exports.createGitLabClient = createGitLabClient;
+const simple_git_1 = require("simple-git");
 const axios_1 = __importDefault(require("axios"));
 const chalk_1 = __importDefault(require("chalk"));
 const config_1 = require("./config");
-const simple_git_1 = require("simple-git");
 class GitLabClient {
     client;
     baseUrl;
@@ -59,7 +59,6 @@ class GitLabClient {
         // https://gitlab.com/.../repo.git
         // => https://oauth2:TOKEN@gitlab.com/.../repo.git
         const parsedRepoUrl = repositoryUrl.replace(/^https:\/\//, `https://oauth2:${token}@`);
-        console.log(parsedRepoUrl, "PARSD");
         try {
             console.log(chalk_1.default.blue(`Cloning from ${repositoryUrl}...`));
             await git.clone(parsedRepoUrl, targetPath, [
