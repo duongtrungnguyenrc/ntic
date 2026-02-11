@@ -1,4 +1,4 @@
-# NTIC - NestJS Template Integration CLI
+# NTIC - NestJS Module Integration CLI
 
 A powerful CLI tool to manage version-based NestJS module boilerplates from a centralized GitLab repository with local caching and smart dependency resolution.
 
@@ -63,6 +63,12 @@ Link with bin
 npm link
 ```
 
+Test command
+
+```bash
+ntic
+```
+
 ## Setup
 
 ### 1. Configure GitLab Access
@@ -93,23 +99,27 @@ modules-repo/
     package.json
     tsconfig.json
     src/
-      common/
-        module.json
-        ...
-      auth/
-        module.json
-        ...
-      database/
-        module.json
-        ...
+      modules/
+        common/
+          module.json
+          src/
+            logger/
+            validators/
+        auth/
+          module.json
+          src/
+        database/
+          module.json
+          src/
 
   v11/
     package.json
     tsconfig.json
     src/
-      common/
-        module.json
-        ...
+      modules/
+        common/
+          module.json
+          src/
 ```
 
 ## Usage
@@ -133,7 +143,7 @@ This command:
 - Sets up `@lib` path alias in `tsconfig.json`
 - Creates `ntic.json` with version information
 - Auto-installs modules with `installWhenInit: true` (like "common")
-- Sets up example environment variables
+- Sets up environment variables
 
 ### Add Modules
 
@@ -167,6 +177,61 @@ List specific version modules:
 
 ```bash
 ntic list@10
+```
+
+## Version Management
+
+### Set Default Version
+
+```bash
+ntic set-default-version 11
+```
+
+Commands will use v11 by default if no version is specified.
+
+### Get Default Version
+
+```bash
+ntic get-default-version
+```
+
+Shows currently configured default version.
+
+### Override Default
+
+Always use `@version` suffix to override:
+
+```bash
+ntic init@10    # Use v10 even if default is v11
+ntic add@12     # Use v12 specifically
+```
+
+## Cache Management
+
+### View Cache Information
+
+```bash
+ntic cache-info
+```
+
+Shows:
+- Cached versions
+- Cache size per version
+- Last update time
+- Latest commit hash
+
+### Clear Cache
+
+Clear specific version:
+
+```bash
+ntic cache-clear 11
+```
+
+Clear all caches:
+
+```bash
+ntic cache-clear
 ```
 
 ## Module Metadata Format
@@ -266,6 +331,9 @@ cd my-app
 # Configure GitLab once
 ntic setup
 
+# Set default version (optional)
+ntic set-default-version 11
+
 # Initialize project
 ntic init
 # → Creates ntic.json with v11
@@ -286,8 +354,14 @@ ntic add
 ### 4. Manage Versions
 
 ```bash
+# Check what's cached
+ntic cache-info
+
 # Update cache (automatic, but can force)
 ntic add@11
+
+# Clear old versions
+ntic cache-clear 10
 ```
 
 ## Common Patterns
@@ -389,8 +463,16 @@ ntic setup                    Setup GitLab authentication
 ntic init [version]          Initialize NestJS project
 ntic add [version]           Add modules to project
 ntic list [version]          List available/installed modules
+ntic set-default-version     Set default NestJS version
+ntic get-default-version     Show default NestJS version
+ntic cache-info              Show cache information
+ntic cache-clear [version]   Clear cache
 ```
+
+## License
+
+Proprietary - For internal company use only
 
 ## Support
 
-For issues or feature requests, contact with Sugar
+For issues or feature requests, contact the DevOps team.

@@ -5,6 +5,7 @@ import * as os from "node:os";
 import chalk from "chalk";
 
 import { clearCache } from "../utils/cache";
+import { Stats } from "fs-extra";
 
 const CACHE_DIR: string = path.join(os.homedir(), ".ntic");
 
@@ -53,7 +54,7 @@ export function cacheCommand(program: Command): void {
                return;
             }
 
-            console.log(chalk.cyan("\n📦 Cache Information\n"));
+            console.log(chalk.cyan("\nCache Information\n"));
             console.log(chalk.gray(`Cache Directory: ${CACHE_DIR}\n`));
 
             const versions = await fs.readdir(CACHE_DIR);
@@ -66,18 +67,18 @@ export function cacheCommand(program: Command): void {
 
             console.log(chalk.cyan("Cached Versions:"));
             for (const versionDir of versionDirs) {
-               const versionPath = path.join(CACHE_DIR, versionDir);
-               const metadataPath = path.join(versionPath, "cache-metadata.json");
+               const versionPath: string = path.join(CACHE_DIR, versionDir);
+               const metadataPath: string = path.join(versionPath, "cache-metadata.json");
 
                try {
                   const metadata = await fs.readJson(metadataPath);
-                  const srcPath = path.join(versionPath, "src");
-                  const exists = await fs.pathExists(srcPath);
+                  const srcPath: string = path.join(versionPath, "src");
+                  const exists: boolean = await fs.pathExists(srcPath);
 
                   if (exists) {
-                     const stats = await fs.stat(srcPath);
-                     const sizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
-                     const cachedAt = metadata.cachedAt ? new Date(metadata.cachedAt).toLocaleString() : "Unknown";
+                     const stats: Stats = await fs.stat(srcPath);
+                     const sizeInMB: string = (stats.size / (1024 * 1024)).toFixed(2);
+                     const cachedAt: string = metadata.cachedAt ? new Date(metadata.cachedAt).toLocaleString() : "Unknown";
 
                      console.log(chalk.gray(`  ${versionDir}`));
                      console.log(chalk.gray(`    Size: ${sizeInMB} MB`));

@@ -24,7 +24,8 @@ export function versionCommand(program: Command): void {
       .description("Get the current default NestJS version")
       .action(async () => {
          try {
-            const version = await getDefaultVersion();
+            const version: string | undefined = await getDefaultVersion();
+
             if (version) {
                console.log(chalk.cyan(`\nDefault NestJS version: ${chalk.green(`v${version}`)}\n`));
             } else {

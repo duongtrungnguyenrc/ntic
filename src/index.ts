@@ -7,6 +7,8 @@ import { setupCommand } from "./commands/setup";
 import { initCommand } from "./commands/init";
 import { addCommand } from "./commands/add";
 import { listCommand } from "./commands/list";
+import { versionCommand } from "./commands/version";
+import { cacheCommand } from "./commands/cache";
 
 const program = new Command();
 
@@ -21,19 +23,25 @@ setupCommand(program);
 initCommand(program);
 addCommand(program);
 listCommand(program);
+cacheCommand(program);
+versionCommand(program);
 
 // Custom help
-program.on("--help", () => {
+program.on('--help', () => {
    console.log();
-   console.log(chalk.cyan("Examples:"));
-   console.log(chalk.gray("  $ ntic setup"));
-   console.log(chalk.gray("    Configure GitLab authentication\n"));
-   console.log(chalk.gray("  $ ntic init"));
-   console.log(chalk.gray("    Initialize a NestJS project for module integration\n"));
-   console.log(chalk.gray("  $ ntic add"));
-   console.log(chalk.gray("    Add modules to your project\n"));
-   console.log(chalk.gray("  $ ntic list"));
-   console.log(chalk.gray("    List all available and installed modules\n"));
+   console.log(chalk.cyan('Examples:'));
+   console.log(chalk.gray('  $ ntic setup'));
+   console.log(chalk.gray('    Configure GitLab authentication\n'));
+   console.log(chalk.gray('  $ ntic init'));
+   console.log(chalk.gray('    Initialize a NestJS project (detects version from package.json)\n'));
+   console.log(chalk.gray('  $ ntic init@11'));
+   console.log(chalk.gray('    Initialize with specific NestJS version (v11)\n'));
+   console.log(chalk.gray('  $ ntic add'));
+   console.log(chalk.gray('    Add modules to your project (uses version from ntic.json)\n'));
+   console.log(chalk.gray('  $ ntic add@10'));
+   console.log(chalk.gray('    Add modules from specific NestJS version (v10)\n'));
+   console.log(chalk.gray('  $ ntic list'));
+   console.log(chalk.gray('    List all available and installed modules\n'));
 });
 
 // Error handling

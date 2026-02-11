@@ -86,7 +86,7 @@ function cacheCommand(program) {
                 console.log(chalk_1.default.yellow("\nNo cache found at ~/.ntic\n"));
                 return;
             }
-            console.log(chalk_1.default.cyan("\n📦 Cache Information\n"));
+            console.log(chalk_1.default.cyan("\nCache Information\n"));
             console.log(chalk_1.default.gray(`Cache Directory: ${CACHE_DIR}\n`));
             const versions = await fs.readdir(CACHE_DIR);
             const versionDirs = versions.filter((v) => v.startsWith("v"));
