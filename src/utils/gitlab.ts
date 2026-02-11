@@ -1,9 +1,9 @@
+import { LogResult, simpleGit, SimpleGit } from "simple-git";
 import axios, { AxiosInstance, AxiosResponse } from "axios";
 import chalk from "chalk";
 
 import { getConfigValue, setConfigValue } from "./config";
 import { ModuleMetadata } from "../types/module";
-import { LogResult, simpleGit, SimpleGit } from "simple-git";
 
 export class GitLabClient {
    private readonly client: AxiosInstance;
@@ -55,18 +55,35 @@ export class GitLabClient {
       }
    }
 
-   async cloneSource(repositoryUrl: string, targetPath: string, version: number): Promise<void> {
+   async cloneSource(
+      repositoryUrl: string,
+      targetPath: string,
+      version: number
+   ): Promise<void> {
+
       const git: SimpleGit = simpleGit();
+      const token: string | undefined = await getConfigValue("gitlabToken");
+
+      if (!token) {
+         throw new Error("GitLab access token not configured. Run `ntic setup`.");
+      }
+
+      // https://gitlab.com/.../repo.git
+      // => https://oauth2:TOKEN@gitlab.com/.../repo.git
+      const parsedRepoUrl: string = repositoryUrl.replace(
+         /^https:\/\//,
+         `https://oauth2:${token}@`
+      );
+
+      console.log(parsedRepoUrl, "PARSD");
 
       try {
          console.log(chalk.blue(`Cloning from ${repositoryUrl}...`));
-         await git.clone(repositoryUrl, targetPath, [
-            "--depth",
-            "1",
-            "--branch",
-            `v${version}`,
-            "--filter",
-            "blob:none",
+
+         await git.clone(parsedRepoUrl, targetPath, [
+            "--depth", "1",
+            "--branch", `v${version}`,
+            "--filter", "blob:none"
          ]);
 
          console.log(chalk.green("✓ Repository cloned successfully"));

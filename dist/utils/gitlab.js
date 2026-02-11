@@ -52,15 +52,20 @@ class GitLabClient {
     }
     async cloneSource(repositoryUrl, targetPath, version) {
         const git = (0, simple_git_1.simpleGit)();
+        const token = await (0, config_1.getConfigValue)("gitlabToken");
+        if (!token) {
+            throw new Error("GitLab access token not configured. Run `ntic setup`.");
+        }
+        // https://gitlab.com/.../repo.git
+        // => https://oauth2:TOKEN@gitlab.com/.../repo.git
+        const parsedRepoUrl = repositoryUrl.replace(/^https:\/\//, `https://oauth2:${token}@`);
+        console.log(parsedRepoUrl, "PARSD");
         try {
             console.log(chalk_1.default.blue(`Cloning from ${repositoryUrl}...`));
-            await git.clone(repositoryUrl, targetPath, [
-                "--depth",
-                "1",
-                "--branch",
-                `v${version}`,
-                "--filter",
-                "blob:none",
+            await git.clone(parsedRepoUrl, targetPath, [
+                "--depth", "1",
+                "--branch", `v${version}`,
+                "--filter", "blob:none"
             ]);
             console.log(chalk_1.default.green("✓ Repository cloned successfully"));
         }

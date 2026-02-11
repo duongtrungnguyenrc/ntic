@@ -217,7 +217,7 @@ export async function installAutoInstallableModules(
 
       for (const moduleName of availableModules) {
          try {
-            const metadata = await getCachedModuleMetadata(nestJsVersion, moduleName);
+            const metadata: ModuleMetadata | null = await getCachedModuleMetadata(nestJsVersion, moduleName);
 
             if (!metadata) continue;
 
