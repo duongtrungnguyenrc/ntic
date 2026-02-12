@@ -10,9 +10,9 @@ const config_1 = require("../utils/config");
 const gitlab_1 = require("../utils/gitlab");
 function setupCommand(program) {
     program
-        .command("setup")
+        .command("setup [storage]")
         .description("Setup GitLab authentication and CLI configuration")
-        .action(async () => {
+        .action(async (storage) => {
         try {
             console.log(chalk_1.default.cyan("\nNestJS Modules CLI Setup\n"));
             const currentConfig = await (0, config_1.loadConfig)();
@@ -21,27 +21,29 @@ function setupCommand(program) {
                     type: "input",
                     name: "gitlabUrl",
                     message: "GitLab server URL:",
-                    default: currentConfig.gitlabUrl || "https://gitlab.com",
+                    default: currentConfig?.default?.gitlabUrl || "https://gitlab.com",
                 },
                 {
                     type: "input",
                     name: "token",
                     message: "Enter your GitLab Personal Access Token:",
-                    default: currentConfig.gitlabToken,
+                    default: currentConfig?.default?.gitlabToken,
                 },
                 {
                     type: "input",
                     name: "modulesRegistry",
                     message: "GitLab project ID or path (e.g., company/nestjs-modules):",
-                    default: currentConfig.modulesRegistry || "company/nestjs-modules",
+                    default: currentConfig?.default?.modulesRegistry || "company/nestjs-modules",
                 },
             ]);
             const client = new gitlab_1.GitLabClient(answers.gitlabUrl);
             // Validate token
             await client.authenticate(answers.token);
-            await (0, config_1.setConfigValue)("gitlabUrl", answers.gitlabUrl);
-            await (0, config_1.setConfigValue)("gitlabToken", answers.token);
-            await (0, config_1.setConfigValue)("modulesRegistry", answers.modulesRegistry);
+            await (0, config_1.saveConfig)({
+                gitlabUrl: answers.gitlabUrl,
+                gitlabToken: answers.token,
+                modulesRegistry: answers.modulesRegistry,
+            }, storage);
             console.log(chalk_1.default.green("\n✓ Setup completed successfully!\n"));
             console.log(chalk_1.default.gray("You can now use the CLI commands:"));
             console.log(chalk_1.default.yellow("  ntic init    - Initialize a NestJS project"));

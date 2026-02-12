@@ -102,15 +102,13 @@ modules-repo/
       modules/
         common/
           module.json
-          src/
-            logger/
-            validators/
+            ...
         auth/
           module.json
-          src/
+            ...
         database/
           module.json
-          src/
+            ...
 
   v11/
     package.json
@@ -119,7 +117,7 @@ modules-repo/
       modules/
         common/
           module.json
-          src/
+          ...
 ```
 
 ## Usage
@@ -177,22 +175,6 @@ List specific version modules:
 
 ```bash
 ntic list@10
-```
-
-## Version Management
-
-### Set Default Version
-
-```bash
-ntic set-default-version 11
-```
-
-Commands will use v11 by default if no version is specified.
-
-### Get Default Version
-
-```bash
-ntic get-default-version
 ```
 
 Shows currently configured default version.
@@ -331,9 +313,6 @@ cd my-app
 # Configure GitLab once
 ntic setup
 
-# Set default version (optional)
-ntic set-default-version 11
-
 # Initialize project
 ntic init
 # → Creates ntic.json with v11
@@ -463,8 +442,6 @@ ntic setup                    Setup GitLab authentication
 ntic init [version]          Initialize NestJS project
 ntic add [version]           Add modules to project
 ntic list [version]          List available/installed modules
-ntic set-default-version     Set default NestJS version
-ntic get-default-version     Show default NestJS version
 ntic cache-info              Show cache information
 ntic cache-clear [version]   Clear cache
 ```

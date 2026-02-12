@@ -42,19 +42,25 @@ exports.createNticConfig = createNticConfig;
 exports.saveNticConfig = saveNticConfig;
 exports.addModulesToNtic = addModulesToNtic;
 exports.getNestJsVersionFromNtic = getNestJsVersionFromNtic;
+exports.getInstallationPath = getInstallationPath;
+exports.getInstalledModules = getInstalledModules;
+exports.moduleExists = moduleExists;
 exports.installModules = installModules;
 exports.installAutoInstallableModules = installAutoInstallableModules;
+exports.getInstallationStats = getInstallationStats;
+const process = __importStar(require("node:process"));
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
+const common_1 = require("./common");
 const nestjs_1 = require("./nestjs");
-const dependencies_1 = require("./dependencies");
+const version_1 = require("./version");
 const cache_1 = require("./cache");
 const NTIC_FILE = "ntic.json";
 async function getNticPath(projectRoot) {
     return path.join(projectRoot, NTIC_FILE);
 }
-async function loadNticConfig(projectRoot) {
+async function loadNticConfig(projectRoot = process.cwd()) {
     try {
         const nticPath = await getNticPath(projectRoot);
         if (await fs.pathExists(nticPath)) {
@@ -97,10 +103,6 @@ async function addModulesToNtic(projectRoot, modules) {
         }
         for (const module of modules) {
             const existingIndex = nticConfig.modules.findIndex((m) => m.name === module.name);
-            // Minimize module metadata
-            delete module.dependencies;
-            delete module.devDependencies;
-            delete module.peerDependencies;
             if (existingIndex >= 0) {
                 nticConfig.modules[existingIndex] = module;
             }
@@ -124,6 +126,47 @@ async function getNestJsVersionFromNtic(projectRoot) {
         return null;
     }
 }
+function getInstallationPath(config, place) {
+    switch (place) {
+        case "src":
+            return config.srcDir;
+        case "lib":
+            return config.libDir;
+        default:
+            return config.projectRoot;
+    }
+}
+async function getInstalledModules(config, moduleNames) {
+    const nticConfig = await loadNticConfig();
+    if (!nticConfig) {
+        throw new Error("Ntic configuration not found. Please run `ntic init`");
+    }
+    const nticModules = nticConfig.modules || [];
+    const installed = [];
+    try {
+        for (const module of nticModules) {
+            const installDir = getInstallationPath(config, module.installationPlace);
+            const modulePath = path.join(installDir, module.name);
+            const includeThisModule = moduleNames?.includes(module.name) || true;
+            if ((await fs.pathExists(modulePath)) && includeThisModule) {
+                installed.push(module);
+            }
+        }
+        return installed;
+    }
+    catch (error) {
+        throw new Error(`Failed to get installed modules: ${error}`);
+    }
+}
+async function moduleExists(config, moduleName) {
+    const locations = [config.srcDir, config.libDir, config.projectRoot];
+    for (const basePath of locations) {
+        if (await fs.pathExists(path.join(basePath, moduleName))) {
+            return true;
+        }
+    }
+    return false;
+}
 async function copyModuleFromCache(cachedModulePath, destPath) {
     if (!(await fs.pathExists(cachedModulePath))) {
         console.warn(chalk_1.default.yellow(`⚠ Module source not found in cache for ${path.basename(destPath)}`));
@@ -133,27 +176,26 @@ async function copyModuleFromCache(cachedModulePath, destPath) {
         filter: (src) => {
             const fileName = path.basename(src);
             return fileName !== "module.json";
-        }
+        },
     });
 }
-async function postInstallModule(projectRoot, config, metadata, dependencyGraph) {
+async function postInstallModule(config, metadata) {
     if (!metadata.environmentVariables?.length)
         return;
     await (0, nestjs_1.updateEnvironmentVariables)(config, metadata.environmentVariables, true);
-    await (0, dependencies_1.updateProjectDependencies)(projectRoot, dependencyGraph);
 }
-async function installSingleModule(projectRoot, moduleName, srcPath, config, moduleMetadataMap, dependencyGraph) {
-    if (await (0, nestjs_1.moduleExists)(config, moduleName)) {
+async function installSingleModule(moduleName, srcPath, config, moduleMetadataMap) {
+    if (await moduleExists(config, moduleName)) {
         console.log(chalk_1.default.yellow(`⊘ Module ${moduleName} already installed, skipping`));
         return;
     }
     try {
         const metadata = moduleMetadataMap.get(moduleName);
-        const installDir = (0, nestjs_1.getInstallationPath)(config, metadata.installationPlace);
+        const installDir = getInstallationPath(config, metadata.installationPlace);
         const cachedModulePath = path.join(srcPath, "src", moduleName);
         const destPath = path.join(installDir, moduleName);
         await copyModuleFromCache(cachedModulePath, destPath);
-        await postInstallModule(projectRoot, config, metadata, dependencyGraph);
+        await postInstallModule(config, metadata);
         console.log(chalk_1.default.green(`✓ Module ${moduleName} installed to ${installDir}`));
     }
     catch (error) {
@@ -161,20 +203,23 @@ async function installSingleModule(projectRoot, moduleName, srcPath, config, mod
         throw error;
     }
 }
-async function installModules(srcPath, projectRoot, modules, moduleMetadataMap) {
+async function installModules(srcPath, projectRoot, moduleNames, moduleMetadataMap) {
     const config = await (0, nestjs_1.detectNestJSProject)(projectRoot);
     // Resolve dependencies
-    const dependencyGraph = await (0, dependencies_1.resolveDependencies)(modules, moduleMetadataMap);
-    // Download and install modules
-    console.log(chalk_1.default.blue("\nInstalling modules..."));
+    const dependencyGraph = await (0, common_1.resolveDependencies)(moduleNames, moduleMetadataMap);
+    // Download and install moduleNames
+    console.log(chalk_1.default.blue("\nInstalling moduleNames..."));
     for (const moduleName of dependencyGraph.order) {
-        await installSingleModule(projectRoot, moduleName, srcPath, config, moduleMetadataMap, dependencyGraph);
+        await installSingleModule(moduleName, srcPath, config, moduleMetadataMap);
     }
-    // Add modules to ntic.json
-    const modulesToAdd = dependencyGraph.order.map(name => moduleMetadataMap.get(name));
+    // Add moduleNames to ntic.json
+    const modulesToAdd = dependencyGraph.order.map((name) => moduleMetadataMap.get(name));
     await addModulesToNtic(projectRoot, modulesToAdd);
     // Update project dependencies
-    await (0, dependencies_1.updateProjectDependencies)(projectRoot, dependencyGraph);
+    await (0, common_1.updateProjectDependencies)(projectRoot, dependencyGraph);
+    // Update nest-cli.json
+    const nestCliOverrides = modulesToAdd.map((metadata) => metadata.nestCliOverride);
+    await (0, common_1.updateNestCli)(projectRoot, nestCliOverrides);
     return dependencyGraph.order;
 }
 async function installAutoInstallableModules(projectRoot, nestJsVersion) {
@@ -183,38 +228,51 @@ async function installAutoInstallableModules(projectRoot, nestJsVersion) {
         // Check for GitLab configuration and cache
         console.log(chalk_1.default.blue("\nSetting up module cache..."));
         // Clone or update cache for this version
-        const cachedSrcPath = await (0, cache_1.cloneOrUpdateCache)(nestJsVersion);
+        const cachedSrcPath = await (0, cache_1.ensureLatestCache)(nestJsVersion);
         // List available modules from cache
         const availableModules = await (0, cache_1.listCachedModules)(nestJsVersion);
         console.log(chalk_1.default.green(`✓ Found ${availableModules.length} available modules`));
-        // Load metadata and find modules with installWhenInit flag
-        console.log(chalk_1.default.blue("Loading module metadata..."));
-        const moduleMetadataMap = new Map();
-        for (const moduleName of availableModules) {
-            try {
-                const metadata = await (0, cache_1.getCachedModuleMetadata)(nestJsVersion, moduleName);
-                if (!metadata)
-                    continue;
-                moduleMetadataMap.set(moduleName, metadata);
-                if (metadata.installWhenInit) {
-                    autoInstallModules.push(moduleName);
-                }
-            }
-            catch {
-                console.warn(chalk_1.default.yellow(`⚠ Could not load metadata for ${moduleName}`));
-            }
-        }
+        const autoInstallModules = availableModules.filter((m) => m.installWhenInit);
+        const autoInstallModuleNames = autoInstallModules.map((m) => m.name);
         if (!autoInstallModules.length) {
             console.log(chalk_1.default.gray("No modules marked for auto-install"));
             return [];
         }
-        console.log(chalk_1.default.cyan(`\nAuto-installing modules: ${autoInstallModules.join(", ")}`));
-        await installModules(cachedSrcPath, projectRoot, autoInstallModules, moduleMetadataMap);
+        console.log(chalk_1.default.cyan(`\nAuto-installing modules: ${autoInstallModules.map((m) => m.name).join(", ")}`));
+        // Load metadata and find modules with installWhenInit flag
+        console.log(chalk_1.default.blue("Loading module metadata..."));
+        const moduleMetadataMap = availableModules.reduce((prev, curr) => {
+            prev.set(curr.name, curr);
+            return prev;
+        }, new Map());
+        await installModules(cachedSrcPath, projectRoot, autoInstallModuleNames, moduleMetadataMap);
         console.log(chalk_1.default.green(`✓ Auto-install modules completed`));
     }
     catch (error) {
         console.warn(chalk_1.default.yellow(`⚠ Could not auto-install modules: ${error}`));
     }
     return autoInstallModules;
+}
+async function getInstallationStats(projectRoot) {
+    // Installed modules
+    console.log(chalk_1.default.blue("Detecting NestJS project..."));
+    const config = await (0, nestjs_1.detectNestJSProject)(projectRoot);
+    // Detect version
+    const version = (0, version_1.normalizeVersion)((await getNestJsVersionFromNtic(projectRoot)) || (await (0, version_1.detectNestJsVersion)(projectRoot)));
+    console.log(chalk_1.default.green(`✓ NestJS v${version} project detected at ${config.projectRoot}`));
+    await (0, cache_1.ensureLatestCache)(version);
+    const allModules = await (0, cache_1.listCachedModules)(version);
+    const installedModules = await getInstalledModules(config);
+    const availableModules = allModules.filter((m) => !installedModules.some((i) => i.name === m.name));
+    const visibleAvailableModules = availableModules.filter((m) => m.visibility !== false);
+    const invisibleModules = availableModules.filter((m) => m.visibility === false);
+    return {
+        version,
+        allModules,
+        installedModules,
+        availableModules,
+        invisibleModules,
+        visibleAvailableModules,
+    };
 }
 //# sourceMappingURL=ntic.js.map

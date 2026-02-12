@@ -40,71 +40,23 @@ exports.addCommand = addCommand;
 const path = __importStar(require("node:path"));
 const inquirer_1 = __importDefault(require("inquirer"));
 const chalk_1 = __importDefault(require("chalk"));
-const cache_1 = require("../utils/cache");
-const nestjs_1 = require("../utils/nestjs");
 const ntic_1 = require("../utils/ntic");
-const version_1 = require("../utils/version");
+const cache_1 = require("../utils/cache");
 function addCommand(program) {
     program
-        .command("add [version]")
+        .command("add")
         .description("Add modules to your NestJS project")
+        .option("-s, --storage <name>", "Selection modules registry storage (default: default storage)")
         .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
         .option("-m, --modules <names>", "Comma-separated module names to add")
-        .action(async (versionArg, options) => {
+        .action(async (_, options) => {
         try {
             console.log(chalk_1.default.cyan("\nAdd Modules to NestJS Project\n"));
             const projectRoot = options.project ? path.resolve(options.project) : process.cwd();
-            // Detect NestJS project
-            console.log(chalk_1.default.blue("Detecting NestJS project..."));
-            const config = await (0, nestjs_1.detectNestJSProject)(projectRoot);
-            console.log(chalk_1.default.green(`✓ NestJS project detected at ${config.projectRoot}`));
-            // Determine NestJS version
-            let nestJsVersion = versionArg || (await (0, ntic_1.getNestJsVersionFromNtic)(projectRoot));
-            if (!nestJsVersion) {
-                nestJsVersion = await (0, version_1.detectNestJsVersion)(projectRoot);
-            }
-            nestJsVersion = (0, version_1.normalizeVersion)(nestJsVersion);
-            console.log(chalk_1.default.cyan(`NestJS Version: v${nestJsVersion}`));
-            // Clone or update cache for this version
-            console.log(chalk_1.default.blue("\nSetting up module cache..."));
-            const cachedSrcPath = await (0, cache_1.cloneOrUpdateCache)(nestJsVersion);
-            // Get available modules from cache
-            console.log(chalk_1.default.blue("Loading available modules..."));
-            const availableModules = await (0, cache_1.listCachedModules)(nestJsVersion);
-            console.log(chalk_1.default.green(`✓ Found ${availableModules.length} available modules`));
-            if (availableModules.length === 0) {
-                console.error(chalk_1.default.red("No modules available for this version"));
+            const { version, visibleAvailableModules, allModules } = await (0, ntic_1.getInstallationStats)(projectRoot);
+            if (visibleAvailableModules.length === 0) {
+                console.error(chalk_1.default.red("All available modules are already installed"));
                 process.exit(1);
-            }
-            // Filter out already installed modules
-            const installableModules = [];
-            for (const moduleName of availableModules) {
-                const installed = await (0, nestjs_1.moduleExists)(config, moduleName);
-                if (!installed) {
-                    installableModules.push(moduleName);
-                }
-            }
-            if (installableModules.length === 0) {
-                console.log(chalk_1.default.yellow("All available modules are already installed"));
-                return;
-            }
-            // Load metadata for all modules
-            console.log(chalk_1.default.blue("Loading module metadata..."));
-            const moduleMetadataMap = new Map(); // all modules has metadata
-            const visibleModuleMetadataMap = new Map(); // just visible modules
-            for (const moduleName of availableModules) {
-                try {
-                    const metadata = await (0, cache_1.getCachedModuleMetadata)(nestJsVersion, moduleName);
-                    if (metadata) {
-                        moduleMetadataMap.set(moduleName, metadata);
-                        if (metadata.visibility !== false) {
-                            visibleModuleMetadataMap.set(moduleName, metadata);
-                        }
-                    }
-                }
-                catch {
-                    console.warn(chalk_1.default.yellow(`⚠ Could not load metadata for ${moduleName}`));
-                }
             }
             // Ask user which modules to add
             let selectedModules;
@@ -112,7 +64,7 @@ function addCommand(program) {
                 selectedModules = options.modules
                     .split(",")
                     .map((m) => m.trim())
-                    .filter((m) => installableModules.includes(m));
+                    .filter((m) => visibleAvailableModules.some((installable) => installable.name === m));
                 if (selectedModules.length === 0) {
                     console.error(chalk_1.default.red("No valid modules specified"));
                     process.exit(1);
@@ -124,12 +76,11 @@ function addCommand(program) {
                         type: "checkbox",
                         name: "modules",
                         message: "Select modules to add:",
-                        choices: installableModules.map((m) => {
-                            const metadata = visibleModuleMetadataMap.get(m);
+                        choices: visibleAvailableModules.map((metadata) => {
                             const description = metadata?.description || "No description";
                             return {
-                                name: `${m} - ${description}`,
-                                value: m,
+                                name: ` ${metadata.name} - ${description}`,
+                                value: metadata.name,
                             };
                         }),
                         validate: (answer) => {
@@ -143,17 +94,15 @@ function addCommand(program) {
                 selectedModules = answers.modules;
             }
             // Install modules
+            const moduleMetadataMap = allModules.reduce((prev, curr) => {
+                prev.set(curr.name, curr);
+                return prev;
+            }, new Map());
+            const cachedSrcPath = await (0, cache_1.getCachedSourcePath)(version);
             const installedModules = await (0, ntic_1.installModules)(cachedSrcPath, projectRoot, selectedModules, moduleMetadataMap);
             console.log(chalk_1.default.green("\nModules installed successfully!\n"));
             console.log(chalk_1.default.cyan("Installation Summary:"));
-            console.log(chalk_1.default.gray(`  Modules installed: ${installedModules.join(", ")}`));
-            // Show installation locations
-            console.log(chalk_1.default.cyan("\nModule Locations:"));
-            for (const moduleName of installedModules) {
-                const metadata = moduleMetadataMap.get(moduleName);
-                const installDir = (0, nestjs_1.getInstallationPath)(config, metadata.installationPlace);
-                console.log(chalk_1.default.gray(`  ${moduleName}: ${installDir}`));
-            }
+            console.log(chalk_1.default.gray(`  Modules installed: ${installedModules.join(", ") || "No"}`));
             console.log(chalk_1.default.cyan("\nNext Steps:"));
             console.log(chalk_1.default.yellow("  1. Run: npm install"));
             console.log(chalk_1.default.yellow("  2. Update .env with module-specific variables"));

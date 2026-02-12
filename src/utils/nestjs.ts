@@ -2,11 +2,12 @@ import * as path from "node:path";
 import * as fs from "fs-extra";
 import chalk from "chalk";
 
-import { NestJSProjectConfig, EnvironmentVariable, ModuleMetadata } from "../types/module";
+import { NestJSProjectConfig, EnvironmentVariable } from "../types/module";
 
 export async function detectNestJSProject(projectRoot: string = process.cwd()): Promise<NestJSProjectConfig> {
    const packageJsonPath: string = path.join(projectRoot, "package.json");
    const tsconfigPath: string = path.join(projectRoot, "tsconfig.json");
+   const nestCliPath: string = path.join(projectRoot, "nest-cli.json");
 
    if (!(await fs.pathExists(packageJsonPath))) {
       throw new Error("Not a valid NestJS project: package.json not found");
@@ -22,6 +23,10 @@ export async function detectNestJSProject(projectRoot: string = process.cwd()): 
       throw new Error("tsconfig.json not found");
    }
 
+   if (!(await fs.pathExists(nestCliPath))) {
+      throw new Error("nest-cli.json not found");
+   }
+
    const srcDir: string = path.join(projectRoot, "src");
    const libDir: string = path.join(projectRoot, "lib");
    const envPath: string = path.join(projectRoot, ".env");
@@ -35,17 +40,6 @@ export async function detectNestJSProject(projectRoot: string = process.cwd()): 
       envPath,
       envExamplePath,
    };
-}
-
-export function getInstallationPath(config: NestJSProjectConfig, place: ModuleMetadata["installationPlace"]) {
-   switch (place) {
-      case "src-root":
-         return config.projectRoot;
-      case "lib":
-         return config.libDir;
-      default:
-         return config.srcDir;
-   }
 }
 
 export async function ensureLibDirectory(config: NestJSProjectConfig): Promise<void> {
@@ -124,51 +118,4 @@ export async function updateEnvironmentVariables(
    } catch (error) {
       throw new Error(`Failed to update environment variables: ${error}`);
    }
-}
-
-export async function getInstalledModules(config: NestJSProjectConfig): Promise<string[]> {
-   try {
-      if (!(await fs.pathExists(config.libDir))) {
-         return [];
-      }
-
-      const entries = await fs.readdir(config.libDir);
-      const modules = [];
-
-      for (const entry of entries) {
-         const fullPath = path.join(config.libDir, entry);
-         const stat = await fs.stat(fullPath);
-
-         if (stat.isDirectory()) {
-            const metadataPath = path.join(fullPath, "module.json");
-            if (await fs.pathExists(metadataPath)) {
-               modules.push(entry);
-            }
-         }
-      }
-
-      return modules;
-   } catch (error) {
-      throw new Error(`Failed to get installed modules: ${error}`);
-   }
-}
-
-export async function moduleExists(
-   config: NestJSProjectConfig,
-   moduleName: string
-): Promise<boolean> {
-
-   const locations: string[] = [
-      config.srcDir,
-      config.libDir,
-      config.projectRoot
-   ];
-
-   for (const basePath of locations) {
-      if (await fs.pathExists(path.join(basePath, moduleName))) {
-         return true;
-      }
-   }
-
-   return false;
 }

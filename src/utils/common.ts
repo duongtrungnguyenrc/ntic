@@ -2,11 +2,41 @@ import * as path from "node:path";
 import * as fs from "fs-extra";
 import chalk from "chalk";
 
-import { ModuleMetadata, PlainObject } from "../types/module";
+import { DependencyGraph, ModuleMetadata, PlainObject } from "../types/module";
 
-export interface DependencyGraph {
-   modules: Map<string, ModuleMetadata>;
-   order: string[];
+
+function isObject(value: any): value is Record<string, any> {
+   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+export function deepMerge<T extends Record<string, any>>(
+   target: T,
+   source: Partial<T>
+): T {
+
+   if (!isObject(target) || !isObject(source)) {
+      return source as T;
+   }
+
+   for (const key of Object.keys(source)) {
+
+      const srcValue = source[key];
+      const tgtValue = target[key];
+
+      if (Array.isArray(srcValue)) {
+         (target as any)[key] = [...srcValue] as any;
+         continue;
+      }
+
+      if (isObject(srcValue) && isObject(tgtValue)) {
+         (target as any)[key] = deepMerge(tgtValue, srcValue);
+         continue;
+      }
+
+      (target as any)[key] = srcValue as any;
+   }
+
+   return target;
 }
 
 export async function resolveDependencies(
@@ -25,7 +55,8 @@ export async function resolveDependencies(
 
       visited.add(moduleName);
 
-      const metadata = moduleMetadataMap.get(moduleName);
+      const metadata: ModuleMetadata | undefined = moduleMetadataMap.get(moduleName);
+
       if (!metadata) {
          throw new Error(`Module metadata not found for ${moduleName}`);
       }
@@ -56,21 +87,6 @@ export async function resolveDependencies(
    };
 }
 
-export function mergeDependencies(
-   basePackageJson: any,
-   moduleMetadata: ModuleMetadata,
-   type: "dependencies" | "devDependencies" | "peerDependencies" = "dependencies",
-): void {
-   if (!basePackageJson[type]) {
-      basePackageJson[type] = {};
-   }
-
-   const sourceDeps = moduleMetadata[type];
-   if (sourceDeps) {
-      Object.assign(basePackageJson[type], sourceDeps);
-   }
-}
-
 export async function updateProjectDependencies(projectRoot: string, dependencyGraph: DependencyGraph): Promise<void> {
    const packageJsonPath: string = path.join(projectRoot, "package.json");
    const packageJson: PlainObject = await fs.readJson(packageJsonPath);
@@ -78,9 +94,11 @@ export async function updateProjectDependencies(projectRoot: string, dependencyG
    console.log(chalk.blue("\nMerging dependencies..."));
 
    for (const metadata of dependencyGraph.modules.values()) {
-      mergeDependencies(packageJson, metadata, "dependencies");
-      mergeDependencies(packageJson, metadata, "devDependencies");
-      mergeDependencies(packageJson, metadata, "peerDependencies");
+      if (metadata.packageJsonOverride) {
+         deepMerge(packageJson, metadata.packageJsonOverride);
+         deepMerge(packageJson, metadata.packageJsonOverride);
+         deepMerge(packageJson, metadata.packageJsonOverride);
+      }
    }
 
    // Sort dependencies alphabetically for better readability
@@ -104,4 +122,22 @@ export async function updateProjectDependencies(projectRoot: string, dependencyG
 
    await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
    console.log(chalk.green("✓ Dependencies updated in package.json"));
+}
+
+export async function updateNestCli(
+   projectRoot: string,
+   newConfigs: any[]
+): Promise<void> {
+
+   if (!newConfigs.length) return;
+
+   const filePath: string = path.join(projectRoot, "nest-cli.json");
+
+   const nestCliConfig: any = await fs.readJson(filePath);
+
+   for (const cfg of newConfigs) {
+      deepMerge(nestCliConfig, cfg);
+   }
+
+   await fs.writeJson(filePath, nestCliConfig, { spaces: 2 });
 }

@@ -56,23 +56,28 @@ async function loadConfig() {
     }
     return {};
 }
-async function saveConfig(config) {
+async function saveConfig(config, storage = "default") {
     try {
         await fs.ensureDir(CONFIG_DIR);
-        await fs.writeJson(CONFIG_FILE, config, { spaces: 2 });
-        console.log(chalk_1.default.green(`✓ Config saved successfully to ${CONFIG_FILE}`));
+        const fullConfig = await loadConfig();
+        fullConfig[storage] = config;
+        await fs.writeJson(CONFIG_FILE, fullConfig, { spaces: 2 });
+        console.log(chalk_1.default.green(`✓ Config saved successfully to ${CONFIG_FILE} (${storage})`));
     }
     catch (error) {
         throw new Error(`Failed to save config: ${error}`);
     }
 }
-async function getConfigValue(key) {
-    const config = await loadConfig();
-    return config[key];
+async function getConfigValue(key, storage = "default") {
+    const fullConfig = await loadConfig();
+    const config = fullConfig[storage];
+    return config?.[key];
 }
-async function setConfigValue(key, value) {
-    const config = await loadConfig();
+async function setConfigValue(key, value, storage = "default") {
+    const fullConfig = await loadConfig();
+    const config = fullConfig[storage] || {};
     config[key] = value;
-    await saveConfig(config);
+    fullConfig[storage] = config;
+    await saveConfig(config, storage);
 }
 //# sourceMappingURL=config.js.map

@@ -10,7 +10,7 @@ export async function detectNestJsVersion(projectRoot: string = process.cwd(), d
       await (async () => {
          try {
             // First check ntic.json
-            const nticVersion: string | undefined = await getNestJsVersionFromNtic(projectRoot) || defaultVer;
+            const nticVersion: string | undefined = (await getNestJsVersionFromNtic(projectRoot)) || defaultVer;
 
             if (nticVersion) return nticVersion;
 
@@ -35,8 +35,8 @@ export async function detectNestJsVersion(projectRoot: string = process.cwd(), d
             console.log(chalk.yellow("Could not detect NestJS version, using latest"));
             return "latest";
          }
-      })()
-   )
+      })(),
+   );
 }
 
 export async function setDefaultVersion(version: string): Promise<void> {
@@ -52,5 +52,6 @@ export function normalizeVersion(version: string): string {
    if (version.startsWith("v")) {
       return version.substring(1);
    }
+
    return version;
 }

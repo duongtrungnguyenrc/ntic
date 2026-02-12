@@ -38,11 +38,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listCommand = listCommand;
 const path = __importStar(require("node:path"));
-const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
-const nestjs_1 = require("../utils/nestjs");
-const gitlab_1 = require("../utils/gitlab");
-const config_1 = require("../utils/config");
+const ntic_1 = require("../utils/ntic");
 function listCommand(program) {
     program
         .command("list")
@@ -53,97 +50,45 @@ function listCommand(program) {
         .option("-i, --installed", "Show only installed modules")
         .action(async (options) => {
         try {
-            console.log(chalk_1.default.cyan("\nModule Registry\n"));
             const projectRoot = options.project ? path.resolve(options.project) : process.cwd();
-            // Detect NestJS project
-            let config;
-            let installedModules = [];
-            try {
-                config = await (0, nestjs_1.detectNestJSProject)(projectRoot);
-                installedModules = await (0, nestjs_1.getInstalledModules)(config);
-            }
-            catch (error) {
-                console.warn(chalk_1.default.yellow(`⚠ Not a valid NestJS project: ${error}`));
-            }
-            // Check GitLab configuration
-            const gitlabUrl = await (0, config_1.getConfigValue)("gitlabUrl");
-            const modulesRegistry = await (0, config_1.getConfigValue)("modulesRegistry");
-            if (!gitlabUrl || !modulesRegistry) {
-                console.error(chalk_1.default.red("✗ GitLab not configured. Please run: ntic setup"));
-                process.exit(1);
-            }
-            // Create GitLab client
-            const client = await (0, gitlab_1.createGitLabClient)();
-            let availableModules = [];
-            if (!options.installed) {
-                console.log(chalk_1.default.blue("Loading available modules..."));
-                try {
-                    availableModules = await client.listModules(modulesRegistry);
-                }
-                catch (error) {
-                    console.error(chalk_1.default.red(`✗ Failed to load modules: ${error}`));
-                    process.exit(1);
-                }
-            }
-            // Load metadata for display
-            console.log(chalk_1.default.blue("Loading module metadata...\n"));
-            if (!options.available && (installedModules.length > 0 || !options.installed)) {
-                console.log(chalk_1.default.cyan("Installed Modules:"));
-                if (installedModules.length === 0) {
-                    console.log(chalk_1.default.gray("  No modules installed"));
-                }
-                else {
-                    for (const moduleName of installedModules) {
-                        const metadataPath = path.join(config.libDir, moduleName, "module.json");
-                        try {
-                            const metadata = await fs.readJson(metadataPath);
-                            console.log(chalk_1.default.green(`  ✓ ${moduleName}@${metadata.version}`));
-                            if (metadata.description) {
-                                console.log(chalk_1.default.gray(`    ${metadata.description}`));
-                            }
-                            if (metadata.dependentModules && metadata.dependentModules.length > 0) {
-                                console.log(chalk_1.default.gray(`    Depends on: ${metadata.dependentModules.join(", ")}`));
-                            }
+            const { installedModules, visibleAvailableModules } = await (0, ntic_1.getInstallationStats)(projectRoot);
+            console.log(chalk_1.default.cyan(`\nInstallation statistic:\n`));
+            if (installedModules.length) {
+                console.log("  Installed modules:");
+                for (const metadata of installedModules) {
+                    try {
+                        console.log(chalk_1.default.green(`\n  ✓ ${metadata.name}@${metadata.version}`));
+                        if (metadata.description) {
+                            console.log(chalk_1.default.gray(`    Description: ${metadata.description}`));
                         }
-                        catch {
-                            console.log(chalk_1.default.yellow(`  ⊘ ${moduleName} (metadata not found)`));
+                        if (metadata.dependentModules && metadata.dependentModules.length > 0) {
+                            console.log(chalk_1.default.gray(`    Depends on: ${metadata.dependentModules.join(", ")}`));
                         }
                     }
-                }
-                console.log();
-            }
-            if (!options.installed && (availableModules.length > 0 || !options.available)) {
-                console.log(chalk_1.default.cyan("Available Modules:"));
-                const notInstalled = availableModules.filter((m) => !installedModules.includes(m));
-                if (notInstalled.length === 0) {
-                    console.log(chalk_1.default.gray("  All modules installed"));
-                }
-                else {
-                    for (const moduleName of notInstalled) {
-                        try {
-                            const metadata = await client.getModuleMetadata(modulesRegistry, moduleName);
-                            console.log(chalk_1.default.blue(`  ◇ ${moduleName}@${metadata.version}`));
-                            if (metadata.description) {
-                                console.log(chalk_1.default.gray(`    ${metadata.description}`));
-                            }
-                            if (metadata.dependencies) {
-                                const deps = Object.entries(metadata.dependencies)
-                                    .map(([name, version]) => `${name}@${version}`)
-                                    .join(", ");
-                                console.log(chalk_1.default.gray(`    Dependencies: ${deps}`));
-                            }
-                        }
-                        catch {
-                            console.log(chalk_1.default.yellow(`  ◇ ${moduleName} (metadata not found)`));
-                        }
+                    catch {
+                        console.log(chalk_1.default.yellow(`  ⊘ ${metadata.name} (metadata not found)`));
                     }
                 }
-                console.log();
             }
-            console.log(chalk_1.default.cyan(`Summary:`));
+            if (visibleAvailableModules.length) {
+                console.log("\n  Available to install modules:");
+                for (const metadata of visibleAvailableModules) {
+                    console.log(chalk_1.default.blue(`\n  ◇ ${metadata.name}@${metadata.version}`));
+                    if (metadata.description) {
+                        console.log(chalk_1.default.gray(`    Description: ${metadata.description}`));
+                    }
+                    if (metadata.packageJsonOverride?.dependencies) {
+                        const deps = Object.entries(metadata.packageJsonOverride.dependencies)
+                            .map(([name, version]) => `      ${name}@${version}`)
+                            .join("\n");
+                        console.log(chalk_1.default.gray(`    Dependencies:\n${deps}`));
+                    }
+                }
+            }
+            console.log(chalk_1.default.cyan(`\nSummary:\n`));
             console.log(chalk_1.default.gray(`  Installed: ${installedModules.length}`));
-            console.log(chalk_1.default.gray(`  Available: ${availableModules.length - installedModules.length}`));
-            console.log(chalk_1.default.gray(`  Total: ${availableModules.length}\n`));
+            console.log(chalk_1.default.gray(`  Available: ${visibleAvailableModules.length - installedModules.length}`));
+            console.log(chalk_1.default.gray(`  Total: ${visibleAvailableModules.length}\n`));
         }
         catch (error) {
             console.error(chalk_1.default.red(`✗ Failed to list modules: ${error}`));

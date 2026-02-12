@@ -36,20 +36,6 @@ class GitLabClient {
             throw new Error("Invalid GitLab token or URL. Please check your credentials.");
         }
     }
-    async getProjectFile(projectId, filePath, ref = "main") {
-        try {
-            const encodedPath = encodeURIComponent(filePath);
-            const response = await this.client.get(`/api/v4/projects/${encodeURIComponent(projectId)}/repository/files/${encodedPath}/raw`, {
-                params: { ref },
-                responseType: "text",
-                transformResponse: [(data) => data],
-            });
-            return response.data;
-        }
-        catch (error) {
-            throw new Error(`Failed to fetch file ${filePath}: ${error}`);
-        }
-    }
     async cloneSource(repositoryUrl, targetPath, version) {
         const git = (0, simple_git_1.simpleGit)();
         const token = await (0, config_1.getConfigValue)("gitlabToken");
@@ -62,9 +48,12 @@ class GitLabClient {
         try {
             console.log(chalk_1.default.blue(`Cloning from ${repositoryUrl}...`));
             await git.clone(parsedRepoUrl, targetPath, [
-                "--depth", "1",
-                "--branch", `v${version}`,
-                "--filter", "blob:none"
+                "--depth",
+                "1",
+                "--branch",
+                `v${version}`,
+                "--filter",
+                "blob:none",
             ]);
             console.log(chalk_1.default.green("✓ Repository cloned successfully"));
         }
@@ -78,24 +67,6 @@ class GitLabClient {
         await git.checkout(`v${version}`);
         await git.pull();
         return git.log();
-    }
-    async getModuleMetadata(projectId, moduleName) {
-        try {
-            const metadataJson = await this.getProjectFile(projectId, `src/${moduleName}/module.json`);
-            return JSON.parse(metadataJson);
-        }
-        catch {
-            throw new Error(`Failed to fetch module metadata for ${moduleName}`);
-        }
-    }
-    async listModules(projectId) {
-        try {
-            const response = await this.client.get(`/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=src`);
-            return response.data.filter((item) => item.type === "tree").map((item) => item.name);
-        }
-        catch (error) {
-            throw new Error(`Failed to list modules: ${error}`);
-        }
     }
     async getProjectCloneUrl(projectId) {
         const res = await this.client.get(`/api/v4/projects/${encodeURIComponent(projectId)}`);

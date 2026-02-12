@@ -49,7 +49,7 @@ async function detectNestJsVersion(projectRoot = process.cwd(), defaultVer) {
     return normalizeVersion(await (async () => {
         try {
             // First check ntic.json
-            const nticVersion = await (0, ntic_1.getNestJsVersionFromNtic)(projectRoot) || defaultVer;
+            const nticVersion = (await (0, ntic_1.getNestJsVersionFromNtic)(projectRoot)) || defaultVer;
             if (nticVersion)
                 return nticVersion;
             // Then check package.json

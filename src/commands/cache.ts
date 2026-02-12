@@ -78,7 +78,9 @@ export function cacheCommand(program: Command): void {
                   if (exists) {
                      const stats: Stats = await fs.stat(srcPath);
                      const sizeInMB: string = (stats.size / (1024 * 1024)).toFixed(2);
-                     const cachedAt: string = metadata.cachedAt ? new Date(metadata.cachedAt).toLocaleString() : "Unknown";
+                     const cachedAt: string = metadata.cachedAt
+                        ? new Date(metadata.cachedAt).toLocaleString()
+                        : "Unknown";
 
                      console.log(chalk.gray(`  ${versionDir}`));
                      console.log(chalk.gray(`    Size: ${sizeInMB} MB`));

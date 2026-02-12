@@ -3,12 +3,7 @@ import * as path from "node:path";
 import inquirer from "inquirer";
 import chalk from "chalk";
 
-import {
-   detectNestJSProject,
-   ensureLibDirectory,
-   setupPathAlias,
-   updateEnvironmentVariables,
-} from "../utils/nestjs";
+import { detectNestJSProject, ensureLibDirectory, setupPathAlias, updateEnvironmentVariables } from "../utils/nestjs";
 import { createNticConfig, installAutoInstallableModules } from "../utils/ntic";
 import { detectNestJsVersion } from "../utils/version";
 import { NestJSProjectConfig } from "../types/module";

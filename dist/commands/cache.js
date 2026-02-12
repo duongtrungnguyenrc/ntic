@@ -105,7 +105,9 @@ function cacheCommand(program) {
                     if (exists) {
                         const stats = await fs.stat(srcPath);
                         const sizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
-                        const cachedAt = metadata.cachedAt ? new Date(metadata.cachedAt).toLocaleString() : "Unknown";
+                        const cachedAt = metadata.cachedAt
+                            ? new Date(metadata.cachedAt).toLocaleString()
+                            : "Unknown";
                         console.log(chalk_1.default.gray(`  ${versionDir}`));
                         console.log(chalk_1.default.gray(`    Size: ${sizeInMB} MB`));
                         console.log(chalk_1.default.gray(`    Last Updated: ${cachedAt}`));

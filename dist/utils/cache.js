@@ -42,9 +42,7 @@ exports.getCacheMetadata = getCacheMetadata;
 exports.saveCacheMetadata = saveCacheMetadata;
 exports.getCachedSourcePath = getCachedSourcePath;
 exports.isCacheValid = isCacheValid;
-exports.cloneOrUpdateCache = cloneOrUpdateCache;
-exports.getCachedModule = getCachedModule;
-exports.getCachedModuleMetadata = getCachedModuleMetadata;
+exports.ensureLatestCache = ensureLatestCache;
 exports.listCachedModules = listCachedModules;
 exports.clearCache = clearCache;
 const simple_git_1 = require("simple-git");
@@ -54,6 +52,7 @@ const chalk_1 = __importDefault(require("chalk"));
 const node_os_1 = __importDefault(require("node:os"));
 const gitlab_1 = require("./gitlab");
 const config_1 = require("./config");
+const console = __importStar(require("node:console"));
 const NTIC_CACHE_DIR = path.join(node_os_1.default.homedir(), ".ntic");
 const CACHE_METADATA_FILE = "cache-metadata.json";
 async function ensureCacheDir() {
@@ -128,24 +127,15 @@ async function isCacheValid(nestJsVersion) {
     }
 }
 async function getRemoteLatestCommit(nestJsVersion, git) {
-    try {
-        const log = await git.log([`origin/main:v${nestJsVersion}`]);
-        if (log.latest) {
-            return log.latest.hash;
-        }
-        return null;
-    }
-    catch {
-        return null;
-    }
+    await git.fetch();
+    const log = await git.log([`origin/v${nestJsVersion}`]);
+    return log.latest?.hash;
 }
-async function cloneOrUpdateCache(nestJsVersion) {
+async function ensureLatestCache(nestJsVersion) {
     try {
         const gitlabClient = await (0, gitlab_1.createGitLabClient)();
-        const modulesRegistry = (await (0, config_1.getConfigValue)("modulesRegistry"));
         const versionPath = await getCacheVersionPath(nestJsVersion);
         const srcPath = await getCachedSourcePath(nestJsVersion);
-        const repoUrl = await gitlabClient.getProjectCloneUrl(modulesRegistry);
         // Check if cache exists and is valid
         if (await fs.pathExists(srcPath)) {
             const isValid = await isCacheValid(nestJsVersion);
@@ -170,6 +160,8 @@ async function cloneOrUpdateCache(nestJsVersion) {
         // Clone new cache
         console.log(chalk_1.default.blue(`Cloning modules repository for v${nestJsVersion}...`));
         await fs.ensureDir(versionPath);
+        const modulesRegistry = (await (0, config_1.getConfigValue)("modulesRegistry"));
+        const repoUrl = await gitlabClient.getProjectCloneUrl(modulesRegistry);
         await gitlabClient.cloneSource(repoUrl, srcPath, +nestJsVersion);
         const gitClient = (0, simple_git_1.simpleGit)(srcPath);
         const log = await gitClient.log([`-1`]);
@@ -188,37 +180,6 @@ async function cloneOrUpdateCache(nestJsVersion) {
         throw new Error(`Failed to clone or update cache: ${error}`);
     }
 }
-async function getCachedModule(nestJsVersion, moduleName) {
-    try {
-        const srcPath = await getCachedSourcePath(nestJsVersion);
-        const modulePath = path.join(srcPath, "src", moduleName);
-        if (await fs.pathExists(modulePath)) {
-            return modulePath;
-        }
-        return null;
-    }
-    catch (error) {
-        console.error(chalk_1.default.yellow(`Warning: Failed to get cached module: ${error}`));
-        return null;
-    }
-}
-async function getCachedModuleMetadata(nestJsVersion, moduleName) {
-    try {
-        const modulePath = await getCachedModule(nestJsVersion, moduleName);
-        if (!modulePath) {
-            return null;
-        }
-        const metadataPath = path.join(modulePath, "module.json");
-        if (await fs.pathExists(metadataPath)) {
-            return await fs.readJson(metadataPath);
-        }
-        return null;
-    }
-    catch (error) {
-        console.error(chalk_1.default.yellow(`Warning: Failed to read module metadata from cache: ${error}`));
-        return null;
-    }
-}
 async function listCachedModules(nestJsVersion) {
     try {
         const cachedSourcePath = await getCachedSourcePath(nestJsVersion);
@@ -234,7 +195,8 @@ async function listCachedModules(nestJsVersion) {
             if (stat.isDirectory()) {
                 const metadataPath = path.join(fullPath, "module.json");
                 if (await fs.pathExists(metadataPath)) {
-                    modules.push(entry);
+                    const metadata = await fs.readJson(metadataPath);
+                    modules.push(metadata);
                 }
             }
         }
@@ -253,7 +215,14 @@ async function clearCache(nestJsVersion) {
             console.log(chalk_1.default.green(`✓ Cache for v${nestJsVersion} cleared`));
         }
         else {
-            await fs.remove(NTIC_CACHE_DIR);
+            if (!(await fs.pathExists(NTIC_CACHE_DIR)))
+                return;
+            const entries = await fs.readdir(NTIC_CACHE_DIR);
+            for (const entry of entries) {
+                if (entry === "config.json")
+                    continue;
+                await fs.remove(path.join(NTIC_CACHE_DIR, entry));
+            }
             console.log(chalk_1.default.green(`✓ All caches cleared`));
         }
     }

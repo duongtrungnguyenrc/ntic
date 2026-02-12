@@ -1,18 +1,24 @@
-export interface ModuleMetadata {
+export type PlainObject = Record<string, any>;
+
+export type ModuleMetadata = {
    name: string;
    version: string;
    description?: string;
-   dependencies?: Record<string, string>;
-   devDependencies?: Record<string, string>;
-   peerDependencies?: Record<string, string>;
    environmentVariables?: EnvironmentVariable[];
    installationPlace?: "src" | "lib" | "src-root";
    dependentModules?: string[];
    installWhenInit?: boolean;
+   nestCliOverride?: PlainObject;
    visibility?: boolean;
+
+   packageJsonOverride?: {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+   }
 }
 
-export interface EnvironmentVariable {
+export type EnvironmentVariable = {
    name: string;
    description?: string;
    required: boolean;
@@ -20,7 +26,7 @@ export interface EnvironmentVariable {
    example?: string;
 }
 
-export interface NestJSProjectConfig {
+export type NestJSProjectConfig = {
    projectRoot: string;
    srcDir: string;
    libDir: string;
@@ -29,7 +35,7 @@ export interface NestJSProjectConfig {
    envExamplePath: string;
 }
 
-export interface CLIConfig {
+export type CLIConfig = {
    gitlabToken?: string;
    gitlabUrl?: string;
    sshKey?: string;
@@ -38,18 +44,38 @@ export interface CLIConfig {
    defaultNestJsVersion?: string;
 }
 
-export interface NticConfig {
+export type NticConfig = {
    version: string;
    modules: ModuleMetadata[];
    createdAt: string;
    updatedAt: string;
 }
 
-export interface VersionInfo {
+export type VersionInfo = {
    version: string;
    nestJsVersion: string;
    latestCommit?: string;
    cachedAt?: string;
 }
 
-export type PlainObject = Record<string, any>;
+export type DependencyGraph = {
+   modules: Map<string, ModuleMetadata>;
+   order: string[];
+};
+
+export type InstallationStats = {
+   version: string;
+   allModules: ModuleMetadata[];
+   installedModules: ModuleMetadata[];
+   availableModules: ModuleMetadata[];
+   invisibleModules: ModuleMetadata[];
+   visibleAvailableModules: ModuleMetadata[];
+};
+
+// Command Options
+
+export type AddCommandOptions = {
+   storage: string;
+   project: string;
+   modules: string;
+}

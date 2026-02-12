@@ -37,18 +37,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectNestJSProject = detectNestJSProject;
-exports.getInstallationPath = getInstallationPath;
 exports.ensureLibDirectory = ensureLibDirectory;
 exports.setupPathAlias = setupPathAlias;
 exports.updateEnvironmentVariables = updateEnvironmentVariables;
-exports.getInstalledModules = getInstalledModules;
-exports.moduleExists = moduleExists;
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
 async function detectNestJSProject(projectRoot = process.cwd()) {
     const packageJsonPath = path.join(projectRoot, "package.json");
     const tsconfigPath = path.join(projectRoot, "tsconfig.json");
+    const nestCliPath = path.join(projectRoot, "nest-cli.json");
     if (!(await fs.pathExists(packageJsonPath))) {
         throw new Error("Not a valid NestJS project: package.json not found");
     }
@@ -58,6 +56,9 @@ async function detectNestJSProject(projectRoot = process.cwd()) {
     }
     if (!(await fs.pathExists(tsconfigPath))) {
         throw new Error("tsconfig.json not found");
+    }
+    if (!(await fs.pathExists(nestCliPath))) {
+        throw new Error("nest-cli.json not found");
     }
     const srcDir = path.join(projectRoot, "src");
     const libDir = path.join(projectRoot, "lib");
@@ -71,16 +72,6 @@ async function detectNestJSProject(projectRoot = process.cwd()) {
         envPath,
         envExamplePath,
     };
-}
-function getInstallationPath(config, place) {
-    switch (place) {
-        case "src-root":
-            return config.projectRoot;
-        case "lib":
-            return config.libDir;
-        default:
-            return config.srcDir;
-    }
 }
 async function ensureLibDirectory(config) {
     try {
@@ -144,41 +135,5 @@ async function updateEnvironmentVariables(config, variables, createExample = tru
     catch (error) {
         throw new Error(`Failed to update environment variables: ${error}`);
     }
-}
-async function getInstalledModules(config) {
-    try {
-        if (!(await fs.pathExists(config.libDir))) {
-            return [];
-        }
-        const entries = await fs.readdir(config.libDir);
-        const modules = [];
-        for (const entry of entries) {
-            const fullPath = path.join(config.libDir, entry);
-            const stat = await fs.stat(fullPath);
-            if (stat.isDirectory()) {
-                const metadataPath = path.join(fullPath, "module.json");
-                if (await fs.pathExists(metadataPath)) {
-                    modules.push(entry);
-                }
-            }
-        }
-        return modules;
-    }
-    catch (error) {
-        throw new Error(`Failed to get installed modules: ${error}`);
-    }
-}
-async function moduleExists(config, moduleName) {
-    const locations = [
-        config.srcDir,
-        config.libDir,
-        config.projectRoot
-    ];
-    for (const basePath of locations) {
-        if (await fs.pathExists(path.join(basePath, moduleName))) {
-            return true;
-        }
-    }
-    return false;
 }
 //# sourceMappingURL=nestjs.js.map

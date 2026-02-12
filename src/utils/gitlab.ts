@@ -3,7 +3,6 @@ import axios, { AxiosInstance, AxiosResponse } from "axios";
 import chalk from "chalk";
 
 import { getConfigValue, setConfigValue } from "./config";
-import { ModuleMetadata } from "../types/module";
 
 export class GitLabClient {
    private readonly client: AxiosInstance;
@@ -37,30 +36,7 @@ export class GitLabClient {
       }
    }
 
-   async getProjectFile(projectId: string, filePath: string, ref: string = "main"): Promise<string> {
-      try {
-         const encodedPath = encodeURIComponent(filePath);
-         const response = await this.client.get(
-            `/api/v4/projects/${encodeURIComponent(projectId)}/repository/files/${encodedPath}/raw`,
-            {
-               params: { ref },
-               responseType: "text",
-               transformResponse: [(data) => data],
-            },
-         );
-
-         return response.data;
-      } catch (error) {
-         throw new Error(`Failed to fetch file ${filePath}: ${error}`);
-      }
-   }
-
-   async cloneSource(
-      repositoryUrl: string,
-      targetPath: string,
-      version: number
-   ): Promise<void> {
-
+   async cloneSource(repositoryUrl: string, targetPath: string, version: number): Promise<void> {
       const git: SimpleGit = simpleGit();
       const token: string | undefined = await getConfigValue("gitlabToken");
 
@@ -70,18 +46,18 @@ export class GitLabClient {
 
       // https://gitlab.com/.../repo.git
       // => https://oauth2:TOKEN@gitlab.com/.../repo.git
-      const parsedRepoUrl: string = repositoryUrl.replace(
-         /^https:\/\//,
-         `https://oauth2:${token}@`
-      );
+      const parsedRepoUrl: string = repositoryUrl.replace(/^https:\/\//, `https://oauth2:${token}@`);
 
       try {
          console.log(chalk.blue(`Cloning from ${repositoryUrl}...`));
 
          await git.clone(parsedRepoUrl, targetPath, [
-            "--depth", "1",
-            "--branch", `v${version}`,
-            "--filter", "blob:none"
+            "--depth",
+            "1",
+            "--branch",
+            `v${version}`,
+            "--filter",
+            "blob:none",
          ]);
 
          console.log(chalk.green("✓ Repository cloned successfully"));
@@ -97,26 +73,6 @@ export class GitLabClient {
       await git.pull();
 
       return git.log();
-   }
-
-   async getModuleMetadata(projectId: string, moduleName: string): Promise<ModuleMetadata> {
-      try {
-         const metadataJson = await this.getProjectFile(projectId, `src/${moduleName}/module.json`);
-         return JSON.parse(metadataJson);
-      } catch {
-         throw new Error(`Failed to fetch module metadata for ${moduleName}`);
-      }
-   }
-
-   async listModules(projectId: string): Promise<string[]> {
-      try {
-         const response = await this.client.get(
-            `/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=src`,
-         );
-         return response.data.filter((item: any) => item.type === "tree").map((item: any) => item.name);
-      } catch (error) {
-         throw new Error(`Failed to list modules: ${error}`);
-      }
    }
 
    async getProjectCloneUrl(projectId: string): Promise<string> {
