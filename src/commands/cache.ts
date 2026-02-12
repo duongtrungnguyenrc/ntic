@@ -5,7 +5,6 @@ import * as os from "node:os";
 import chalk from "chalk";
 
 import { clearCache } from "../utils/cache";
-import { Stats } from "fs-extra";
 
 const CACHE_DIR: string = path.join(os.homedir(), ".ntic");
 
@@ -13,7 +12,7 @@ export function cacheCommand(program: Command): void {
    program
       .command("cache-clear [version]")
       .description("Clear the local module cache (optionally for a specific version)")
-      .action(async (version) => {
+      .action(async (version: string) => {
          try {
             if (version) {
                console.log(chalk.blue(`Clearing cache for NestJS v${version}...`));
@@ -35,7 +34,7 @@ export function cacheCommand(program: Command): void {
                }
 
                console.log(chalk.blue("Clearing all caches..."));
-               await clearCache();
+               await clearCache(version);
                console.log(chalk.green("✓ All caches cleared"));
             }
          } catch (error) {
@@ -76,7 +75,7 @@ export function cacheCommand(program: Command): void {
                   const exists: boolean = await fs.pathExists(srcPath);
 
                   if (exists) {
-                     const stats: Stats = await fs.stat(srcPath);
+                     const stats: fs.Stats = await fs.stat(srcPath);
                      const sizeInMB: string = (stats.size / (1024 * 1024)).toFixed(2);
                      const cachedAt: string = metadata.cachedAt
                         ? new Date(metadata.cachedAt).toLocaleString()

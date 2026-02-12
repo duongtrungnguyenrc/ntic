@@ -10,8 +10,6 @@ export function listCommand(program: Command): void {
       .alias("ls")
       .description("List installed and available modules")
       .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
-      .option("-a, --available", "Show only available modules")
-      .option("-i, --installed", "Show only installed modules")
       .action(async (options) => {
          try {
             const projectRoot: string = options.project ? path.resolve(options.project) : process.cwd();

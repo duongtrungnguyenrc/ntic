@@ -4,14 +4,15 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 
 import { installModules, getInstallationStats } from "../utils/ntic";
-import { AddCommandOptions, ModuleMetadata } from "../types/module";
 import { getCachedSourcePath } from "../utils/cache";
+import { AddCommandOptions } from "../types/command";
+import { ModuleMetadata } from "../types/module";
 
 export function addCommand(program: Command): void {
    program
       .command("add")
       .description("Add modules to your NestJS project")
-      .option("-s, --storage <name>", "Selection modules registry storage (default: default storage)")
+      .option("-r, --registry <registry>", "Selection modules registry (default: default registry)")
       .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
       .option("-m, --modules <names>", "Comma-separated module names to add")
       .action(async (_, options: AddCommandOptions) => {
@@ -68,11 +69,13 @@ export function addCommand(program: Command): void {
             }
 
             // Install modules
-
-            const moduleMetadataMap = allModules.reduce((prev: Map<string, ModuleMetadata>, curr: ModuleMetadata) => {
-               prev.set(curr.name, curr);
-               return prev;
-            }, new Map<string, ModuleMetadata>());
+            const moduleMetadataMap: Map<string, ModuleMetadata> = allModules.reduce(
+               (prev: Map<string, ModuleMetadata>, curr: ModuleMetadata) => {
+                  prev.set(curr.name, curr);
+                  return prev;
+               },
+               new Map<string, ModuleMetadata>(),
+            );
 
             const cachedSrcPath: string = await getCachedSourcePath(version);
             const installedModules: string[] = await installModules(

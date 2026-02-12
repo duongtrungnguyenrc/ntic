@@ -13,7 +13,7 @@ const program = new Command();
 
 program
    .name("ntic")
-   .description("NestJS Template Injection Cli (NTIC) tool to integrate pre-written NestJS modules")
+   .description("NestJS Template Integration Cli (NTIC)\n\nAuthor: Duong Trung Nguyen")
    .version("1.0.0")
    .helpOption("-h, --help", "Show help");
 

@@ -37,13 +37,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectNestJsVersion = detectNestJsVersion;
-exports.setDefaultVersion = setDefaultVersion;
-exports.getDefaultVersion = getDefaultVersion;
 exports.normalizeVersion = normalizeVersion;
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
-const config_1 = require("./config");
 const ntic_1 = require("./ntic");
 async function detectNestJsVersion(projectRoot = process.cwd(), defaultVer) {
     return normalizeVersion(await (async () => {
@@ -73,13 +70,6 @@ async function detectNestJsVersion(projectRoot = process.cwd(), defaultVer) {
             return "latest";
         }
     })());
-}
-async function setDefaultVersion(version) {
-    await (0, config_1.setConfigValue)("defaultNestJsVersion", version);
-    console.log(chalk_1.default.green(`✓ Default NestJS version set to ${version}`));
-}
-async function getDefaultVersion() {
-    return await (0, config_1.getConfigValue)("defaultNestJsVersion");
 }
 function normalizeVersion(version) {
     if (version.startsWith("v")) {

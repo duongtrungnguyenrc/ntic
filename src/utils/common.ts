@@ -4,22 +4,16 @@ import chalk from "chalk";
 
 import { DependencyGraph, ModuleMetadata, PlainObject } from "../types/module";
 
-
 function isObject(value: any): value is Record<string, any> {
    return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function deepMerge<T extends Record<string, any>>(
-   target: T,
-   source: Partial<T>
-): T {
-
+export function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
    if (!isObject(target) || !isObject(source)) {
       return source as T;
    }
 
    for (const key of Object.keys(source)) {
-
       const srcValue = source[key];
       const tgtValue = target[key];
 
@@ -124,11 +118,7 @@ export async function updateProjectDependencies(projectRoot: string, dependencyG
    console.log(chalk.green("✓ Dependencies updated in package.json"));
 }
 
-export async function updateNestCli(
-   projectRoot: string,
-   newConfigs: any[]
-): Promise<void> {
-
+export async function updateNestCli(projectRoot: string, newConfigs: any[]): Promise<void> {
    if (!newConfigs.length) return;
 
    const filePath: string = path.join(projectRoot, "nest-cli.json");

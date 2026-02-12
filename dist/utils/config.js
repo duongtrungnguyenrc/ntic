@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadConfig = loadConfig;
 exports.saveConfig = saveConfig;
+exports.getRegistryConfig = getRegistryConfig;
 exports.getConfigValue = getConfigValue;
 exports.setConfigValue = setConfigValue;
 const path = __importStar(require("node:path"));
@@ -56,28 +57,34 @@ async function loadConfig() {
     }
     return {};
 }
-async function saveConfig(config, storage = "default") {
+async function saveConfig(config, registry = "default") {
     try {
         await fs.ensureDir(CONFIG_DIR);
         const fullConfig = await loadConfig();
-        fullConfig[storage] = config;
+        fullConfig[registry] = config;
         await fs.writeJson(CONFIG_FILE, fullConfig, { spaces: 2 });
-        console.log(chalk_1.default.green(`✓ Config saved successfully to ${CONFIG_FILE} (${storage})`));
+        console.log(chalk_1.default.green(`✓ Config saved successfully to ${CONFIG_FILE} (${registry})`));
     }
     catch (error) {
         throw new Error(`Failed to save config: ${error}`);
     }
 }
-async function getConfigValue(key, storage = "default") {
+async function getRegistryConfig(registry = "default") {
     const fullConfig = await loadConfig();
-    const config = fullConfig[storage];
+    return fullConfig[registry] || {};
+}
+async function getConfigValue(key, registry = "default") {
+    const fullConfig = await loadConfig();
+    const config = fullConfig[registry];
     return config?.[key];
 }
-async function setConfigValue(key, value, storage = "default") {
+async function setConfigValue(config, registry = "default") {
     const fullConfig = await loadConfig();
-    const config = fullConfig[storage] || {};
-    config[key] = value;
-    fullConfig[storage] = config;
-    await saveConfig(config, storage);
+    const currentConfig = fullConfig[registry] || {};
+    const newConfig = {
+        ...currentConfig,
+        ...config,
+    };
+    await saveConfig(newConfig, registry);
 }
 //# sourceMappingURL=config.js.map

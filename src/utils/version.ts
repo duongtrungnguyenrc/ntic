@@ -2,7 +2,6 @@ import * as path from "node:path";
 import * as fs from "fs-extra";
 import chalk from "chalk";
 
-import { getConfigValue, setConfigValue } from "./config";
 import { getNestJsVersionFromNtic } from "./ntic";
 
 export async function detectNestJsVersion(projectRoot: string = process.cwd(), defaultVer?: string): Promise<string> {
@@ -37,15 +36,6 @@ export async function detectNestJsVersion(projectRoot: string = process.cwd(), d
          }
       })(),
    );
-}
-
-export async function setDefaultVersion(version: string): Promise<void> {
-   await setConfigValue("defaultNestJsVersion", version);
-   console.log(chalk.green(`✓ Default NestJS version set to ${version}`));
-}
-
-export async function getDefaultVersion(): Promise<string | undefined> {
-   return await getConfigValue("defaultNestJsVersion");
 }
 
 export function normalizeVersion(version: string): string {

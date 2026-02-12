@@ -1,4 +1,5 @@
 export type PlainObject = Record<string, any>;
+export type StorageType = "github" | "gitlab";
 export type ModuleMetadata = {
     name: string;
     version: string;
@@ -30,23 +31,21 @@ export type NestJSProjectConfig = {
     envPath: string;
     envExamplePath: string;
 };
-export type CLIConfig = {
-    gitlabToken?: string;
+export type RegistryConfig = {
+    type: StorageType;
+    username?: string;
     gitlabUrl?: string;
-    sshKey?: string;
-    repositoryUrl?: string;
-    modulesRegistry?: string;
-    defaultNestJsVersion?: string;
+    accessToken?: string;
+    repositoryId?: string;
 };
-export type NticConfig = {
+export type NticProjectConfig = {
     version: string;
     modules: ModuleMetadata[];
     createdAt: string;
     updatedAt: string;
 };
-export type VersionInfo = {
+export type CacheMetadata = {
     version: string;
-    nestJsVersion: string;
     latestCommit?: string;
     cachedAt?: string;
 };
@@ -61,10 +60,5 @@ export type InstallationStats = {
     availableModules: ModuleMetadata[];
     invisibleModules: ModuleMetadata[];
     visibleAvailableModules: ModuleMetadata[];
-};
-export type AddCommandOptions = {
-    storage: string;
-    project: string;
-    modules: string;
 };
 //# sourceMappingURL=module.d.ts.map

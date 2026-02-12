@@ -5,17 +5,19 @@ import chalk from "chalk";
 
 import { detectNestJSProject, ensureLibDirectory, setupPathAlias, updateEnvironmentVariables } from "../utils/nestjs";
 import { createNticConfig, installAutoInstallableModules } from "../utils/ntic";
+import { StorageType, NestJSProjectConfig } from "../types/module";
 import { detectNestJsVersion } from "../utils/version";
-import { NestJSProjectConfig } from "../types/module";
+import { InitCommandOptions } from "../types/command";
 import { setupPrettier } from "../utils/format";
 
 export function initCommand(program: Command): void {
    program
-      .command("init [version]")
+      .command("init [registry]")
       .description("Initialize NestJS project for module integration")
+      .option("-r, --registry <registry>", "Selection modules registry (default: default registry)")
       .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
       .option("-a, --alias <alias>", "Path alias for lib directory (default: @lib)", "@lib")
-      .action(async (versionArg, options) => {
+      .action(async (registry: StorageType, options: InitCommandOptions) => {
          try {
             console.log(chalk.cyan("\nNestJS Project Initialization\n"));
 
@@ -28,7 +30,7 @@ export function initCommand(program: Command): void {
 
             // Determine NestJS version
             console.log(chalk.blue("Detecting NestJS version..."));
-            let nestJsVersion: string = await detectNestJsVersion(projectRoot, versionArg);
+            let nestJsVersion: string = await detectNestJsVersion(projectRoot);
             console.log(chalk.green(`NestJS Version: v${nestJsVersion}\n`));
 
             // Ask for confirmation and options

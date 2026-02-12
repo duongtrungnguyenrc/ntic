@@ -5,37 +5,33 @@ import chalk from "chalk";
 import { getConfigValue, setConfigValue } from "./config";
 import { StorageClient } from "../types/interface";
 
-export class GitLabClient implements StorageClient {
+export class GitHubClient implements StorageClient {
+   private readonly githubUrl: string = "https://api.github.com";
    private readonly client: AxiosInstance;
-   private readonly baseUrl: string;
    public token: string = "";
 
-   constructor(baseUrl: string = "https://gitlab.com") {
-      this.baseUrl = baseUrl;
-
+   constructor() {
       this.client = axios.create({
-         baseURL: baseUrl,
+         baseURL: this.githubUrl,
          headers: {
             "Content-Type": "application/json",
          },
       });
    }
 
-   async authenticate(token: string): Promise<void> {
+   async authenticate(token: string): Promise<string> {
       try {
          this.token = token;
-         this.client.defaults.headers["PRIVATE-TOKEN"] = token;
 
-         // Test the token by getting current user
-         const response = await this.client.get("/api/v4/user");
-         console.log(chalk.green(`\n✓ Authenticated as ${response.data.username}`));
+         this.client.defaults.headers["Authorization"] = `Bearer ${token}`;
 
-         await setConfigValue({
-            accessToken: token,
-            gitlabUrl:this.baseUrl,
-         });
+         // Test token
+         const response = await this.client.get("/user");
+
+         console.log(chalk.green(`\n✓ Authenticated as ${response.data.login}`));
+         return response.data.login;
       } catch {
-         throw new Error("Invalid GitLab token or URL. Please check your credentials.");
+         throw new Error("Invalid GitHub token or URL. Please check your credentials.");
       }
    }
 
@@ -44,12 +40,12 @@ export class GitLabClient implements StorageClient {
       const token: string | undefined = await getConfigValue("accessToken");
 
       if (!token) {
-         throw new Error("GitLab access token not configured. Run `ntic setup`.");
+         throw new Error("GitHub access token not configured. Run `ntic setup`.");
       }
 
-      // https://gitlab.com/.../repo.git
-      // => https://oauth2:TOKEN@gitlab.com/.../repo.git
-      const parsedRepoUrl: string = repositoryUrl.replace(/^https:\/\//, `https://oauth2:${token}@`);
+      // https://github.com/user/repo.git
+      // => https://TOKEN@github.com/user/repo.git
+      const parsedRepoUrl: string = repositoryUrl.replace(/^https:\/\//, `https://${token}@`);
 
       try {
          console.log(chalk.blue(`Cloning from ${repositoryUrl}...`));
@@ -71,6 +67,7 @@ export class GitLabClient implements StorageClient {
 
    async updateSource(targetPath: string, version: number): Promise<LogResult> {
       const git: SimpleGit = simpleGit(targetPath);
+
       await git.fetch();
       await git.checkout(`v${version}`);
       await git.pull();
@@ -78,22 +75,27 @@ export class GitLabClient implements StorageClient {
       return git.log();
    }
 
-   async getProjectCloneUrl(repositoryId: string): Promise<string> {
-      const res: AxiosResponse = await this.client.get(`/api/v4/projects/${encodeURIComponent(repositoryId)}`);
+   /**
+    * owner/repo  -> https clone url
+    */
+   async getProjectCloneUrl(project: string): Promise<string> {
+      const username: string | undefined = await getConfigValue("username");
 
-      return res.data.http_url_to_repo;
+      if (!username) throw new Error("GitHub username is required");
+
+      const res: AxiosResponse = await this.client.get(`/repos/${username}/${encodeURIComponent(project)}`);
+
+      return res.data.clone_url;
    }
 }
 
-export async function createGitLabClient(): Promise<GitLabClient> {
-   const gitlabUrl: string = (await getConfigValue("gitlabUrl")) || "https://gitlab.com";
+export async function createGitHubClient(): Promise<GitHubClient> {
    const token: string | undefined = await getConfigValue("accessToken");
-
-   const client = new GitLabClient(gitlabUrl);
+   const client = new GitHubClient();
 
    if (token) {
       client.token = token;
-      client["client"].defaults.headers["PRIVATE-TOKEN"] = token;
+      client["client"].defaults.headers["Authorization"] = `Bearer ${token}`;
    }
 
    return client;

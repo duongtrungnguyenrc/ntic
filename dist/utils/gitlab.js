@@ -28,9 +28,11 @@ class GitLabClient {
             this.client.defaults.headers["PRIVATE-TOKEN"] = token;
             // Test the token by getting current user
             const response = await this.client.get("/api/v4/user");
-            console.log(chalk_1.default.green(`✓ Authenticated as ${response.data.username}`));
-            await (0, config_1.setConfigValue)("gitlabToken", token);
-            await (0, config_1.setConfigValue)("gitlabUrl", this.baseUrl);
+            console.log(chalk_1.default.green(`\n✓ Authenticated as ${response.data.username}`));
+            await (0, config_1.setConfigValue)({
+                accessToken: token,
+                gitlabUrl: this.baseUrl,
+            });
         }
         catch {
             throw new Error("Invalid GitLab token or URL. Please check your credentials.");
@@ -38,7 +40,7 @@ class GitLabClient {
     }
     async cloneSource(repositoryUrl, targetPath, version) {
         const git = (0, simple_git_1.simpleGit)();
-        const token = await (0, config_1.getConfigValue)("gitlabToken");
+        const token = await (0, config_1.getConfigValue)("accessToken");
         if (!token) {
             throw new Error("GitLab access token not configured. Run `ntic setup`.");
         }
@@ -68,15 +70,15 @@ class GitLabClient {
         await git.pull();
         return git.log();
     }
-    async getProjectCloneUrl(projectId) {
-        const res = await this.client.get(`/api/v4/projects/${encodeURIComponent(projectId)}`);
+    async getProjectCloneUrl(repositoryId) {
+        const res = await this.client.get(`/api/v4/projects/${encodeURIComponent(repositoryId)}`);
         return res.data.http_url_to_repo;
     }
 }
 exports.GitLabClient = GitLabClient;
 async function createGitLabClient() {
     const gitlabUrl = (await (0, config_1.getConfigValue)("gitlabUrl")) || "https://gitlab.com";
-    const token = await (0, config_1.getConfigValue)("gitlabToken");
+    const token = await (0, config_1.getConfigValue)("accessToken");
     const client = new GitLabClient(gitlabUrl);
     if (token) {
         client.token = token;

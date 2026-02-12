@@ -50,9 +50,8 @@ const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
 const node_os_1 = __importDefault(require("node:os"));
-const gitlab_1 = require("./gitlab");
 const config_1 = require("./config");
-const console = __importStar(require("node:console"));
+const ntic_1 = require("./ntic");
 const NTIC_CACHE_DIR = path.join(node_os_1.default.homedir(), ".ntic");
 const CACHE_METADATA_FILE = "cache-metadata.json";
 async function ensureCacheDir() {
@@ -133,9 +132,10 @@ async function getRemoteLatestCommit(nestJsVersion, git) {
 }
 async function ensureLatestCache(nestJsVersion) {
     try {
-        const gitlabClient = await (0, gitlab_1.createGitLabClient)();
+        const registryConfig = await (0, config_1.getRegistryConfig)();
         const versionPath = await getCacheVersionPath(nestJsVersion);
         const srcPath = await getCachedSourcePath(nestJsVersion);
+        const storageClient = await (0, ntic_1.getStorageStrategy)(registryConfig.type);
         // Check if cache exists and is valid
         if (await fs.pathExists(srcPath)) {
             const isValid = await isCacheValid(nestJsVersion);
@@ -145,11 +145,10 @@ async function ensureLatestCache(nestJsVersion) {
             }
             // Update existing cache
             console.log(chalk_1.default.blue(`Updating cached version for v${nestJsVersion}...`));
-            const log = await gitlabClient.updateSource(srcPath, +nestJsVersion);
+            const log = await storageClient.updateSource(srcPath, +nestJsVersion);
             if (log.latest) {
                 const metadata = {
                     version: nestJsVersion,
-                    nestJsVersion,
                     latestCommit: log.latest.hash,
                 };
                 await saveCacheMetadata(nestJsVersion, metadata);
@@ -160,15 +159,14 @@ async function ensureLatestCache(nestJsVersion) {
         // Clone new cache
         console.log(chalk_1.default.blue(`Cloning modules repository for v${nestJsVersion}...`));
         await fs.ensureDir(versionPath);
-        const modulesRegistry = (await (0, config_1.getConfigValue)("modulesRegistry"));
-        const repoUrl = await gitlabClient.getProjectCloneUrl(modulesRegistry);
-        await gitlabClient.cloneSource(repoUrl, srcPath, +nestJsVersion);
+        const repositoryId = (await (0, config_1.getConfigValue)("repositoryId"));
+        const repoUrl = await storageClient.getProjectCloneUrl(repositoryId);
+        await storageClient.cloneSource(repoUrl, srcPath, +nestJsVersion);
         const gitClient = (0, simple_git_1.simpleGit)(srcPath);
         const log = await gitClient.log([`-1`]);
         if (log.latest) {
             const metadata = {
                 version: nestJsVersion,
-                nestJsVersion,
                 latestCommit: log.latest.hash,
             };
             await saveCacheMetadata(nestJsVersion, metadata);

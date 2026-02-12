@@ -46,7 +46,7 @@ function addCommand(program) {
     program
         .command("add")
         .description("Add modules to your NestJS project")
-        .option("-s, --storage <name>", "Selection modules registry storage (default: default storage)")
+        .option("-r, --registry <registry>", "Selection modules registry (default: default registry)")
         .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
         .option("-m, --modules <names>", "Comma-separated module names to add")
         .action(async (_, options) => {

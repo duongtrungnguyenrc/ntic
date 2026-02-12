@@ -68,7 +68,7 @@ function cacheCommand(program) {
                     return;
                 }
                 console.log(chalk_1.default.blue("Clearing all caches..."));
-                await (0, cache_1.clearCache)();
+                await (0, cache_1.clearCache)(version);
                 console.log(chalk_1.default.green("✓ All caches cleared"));
             }
         }

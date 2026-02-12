@@ -1,14 +1,14 @@
 import { LogResult, simpleGit, SimpleGit } from "simple-git";
 import * as path from "node:path";
+import { Stats } from "fs-extra";
 import * as fs from "fs-extra";
 import chalk from "chalk";
 import os from "node:os";
 
-import { createGitLabClient, GitLabClient } from "./gitlab";
-import { ModuleMetadata, VersionInfo } from "../types/module";
-import { getConfigValue } from "./config";
-import { Stats } from "fs-extra";
-import * as console from "node:console";
+import { ModuleMetadata, CacheMetadata, RegistryConfig } from "../types/module";
+import { getConfigValue, getRegistryConfig } from "./config";
+import { StorageClient } from "../types/interface";
+import { getStorageStrategy } from "./ntic";
 
 const NTIC_CACHE_DIR: string = path.join(os.homedir(), ".ntic");
 const CACHE_METADATA_FILE = "cache-metadata.json";
@@ -23,7 +23,7 @@ export async function getCacheVersionPath(nestJsVersion: string): Promise<string
    return path.join(cacheDir, `v${nestJsVersion}`);
 }
 
-export async function getCacheMetadata(nestJsVersion: string): Promise<VersionInfo | null> {
+export async function getCacheMetadata(nestJsVersion: string): Promise<CacheMetadata | null> {
    try {
       const versionPath: string = await getCacheVersionPath(nestJsVersion);
       const metadataPath: string = path.join(versionPath, CACHE_METADATA_FILE);
@@ -38,7 +38,7 @@ export async function getCacheMetadata(nestJsVersion: string): Promise<VersionIn
    }
 }
 
-export async function saveCacheMetadata(nestJsVersion: string, metadata: VersionInfo): Promise<void> {
+export async function saveCacheMetadata(nestJsVersion: string, metadata: CacheMetadata): Promise<void> {
    try {
       const versionPath: string = await getCacheVersionPath(nestJsVersion);
       await fs.ensureDir(versionPath);
@@ -58,7 +58,7 @@ export async function getCachedSourcePath(nestJsVersion: string): Promise<string
 
 export async function isCacheValid(nestJsVersion: string): Promise<boolean> {
    try {
-      const metadata: VersionInfo | null = await getCacheMetadata(nestJsVersion);
+      const metadata: CacheMetadata | null = await getCacheMetadata(nestJsVersion);
 
       if (!metadata) {
          return false;
@@ -106,10 +106,11 @@ async function getRemoteLatestCommit(nestJsVersion: string, git: SimpleGit): Pro
 
 export async function ensureLatestCache(nestJsVersion: string): Promise<string> {
    try {
-      const gitlabClient: GitLabClient = await createGitLabClient();
-
+      const registryConfig: RegistryConfig = await getRegistryConfig();
       const versionPath: string = await getCacheVersionPath(nestJsVersion);
       const srcPath: string = await getCachedSourcePath(nestJsVersion);
+
+      const storageClient: StorageClient = await getStorageStrategy(registryConfig.type);
 
       // Check if cache exists and is valid
       if (await fs.pathExists(srcPath)) {
@@ -122,12 +123,11 @@ export async function ensureLatestCache(nestJsVersion: string): Promise<string> 
 
          // Update existing cache
          console.log(chalk.blue(`Updating cached version for v${nestJsVersion}...`));
-         const log: LogResult = await gitlabClient.updateSource(srcPath, +nestJsVersion);
+         const log: LogResult = await storageClient.updateSource(srcPath, +nestJsVersion);
 
          if (log.latest) {
-            const metadata: VersionInfo = {
+            const metadata: CacheMetadata = {
                version: nestJsVersion,
-               nestJsVersion,
                latestCommit: log.latest.hash,
             };
 
@@ -142,18 +142,17 @@ export async function ensureLatestCache(nestJsVersion: string): Promise<string> 
       console.log(chalk.blue(`Cloning modules repository for v${nestJsVersion}...`));
       await fs.ensureDir(versionPath);
 
-      const modulesRegistry: string = (await getConfigValue("modulesRegistry"))!;
-      const repoUrl: string = await gitlabClient.getProjectCloneUrl(modulesRegistry);
+      const repositoryId: string = (await getConfigValue("repositoryId"))!;
+      const repoUrl: string = await storageClient.getProjectCloneUrl(repositoryId);
 
-      await gitlabClient.cloneSource(repoUrl, srcPath, +nestJsVersion);
+      await storageClient.cloneSource(repoUrl, srcPath, +nestJsVersion);
 
       const gitClient: SimpleGit = simpleGit(srcPath);
       const log: LogResult = await gitClient.log([`-1`]);
 
       if (log.latest) {
-         const metadata: VersionInfo = {
+         const metadata: CacheMetadata = {
             version: nestJsVersion,
-            nestJsVersion,
             latestCommit: log.latest.hash,
          };
          await saveCacheMetadata(nestJsVersion, metadata);

@@ -36,6 +36,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getStorageStrategy = getStorageStrategy;
+exports.setupGithubStorage = setupGithubStorage;
+exports.setupGitlabStorage = setupGitlabStorage;
 exports.getNticPath = getNticPath;
 exports.loadNticConfig = loadNticConfig;
 exports.createNticConfig = createNticConfig;
@@ -56,7 +59,32 @@ const common_1 = require("./common");
 const nestjs_1 = require("./nestjs");
 const version_1 = require("./version");
 const cache_1 = require("./cache");
+const github_1 = require("./github");
+const gitlab_1 = require("./gitlab");
+const config_1 = require("./config");
 const NTIC_FILE = "ntic.json";
+async function getStorageStrategy(type) {
+    switch (type) {
+        case "github": return (0, github_1.createGitHubClient)();
+        case "gitlab": return (0, gitlab_1.createGitLabClient)();
+    }
+}
+async function setupGithubStorage(cliConfig, name) {
+    const client = new github_1.GitHubClient();
+    if (!cliConfig.accessToken)
+        throw new Error("Missing Github access token");
+    // Validate token
+    const username = await client.authenticate(cliConfig.accessToken);
+    await (0, config_1.saveConfig)({ ...cliConfig, username }, name);
+}
+async function setupGitlabStorage(cliConfig, name) {
+    const client = new gitlab_1.GitLabClient(cliConfig.gitlabUrl);
+    if (!cliConfig.accessToken)
+        throw new Error("Missing Gitlab access token");
+    // Validate token
+    await client.authenticate(cliConfig.accessToken);
+    await (0, config_1.saveConfig)(cliConfig, name);
+}
 async function getNticPath(projectRoot) {
     return path.join(projectRoot, NTIC_FILE);
 }
@@ -214,6 +242,7 @@ async function installModules(srcPath, projectRoot, moduleNames, moduleMetadataM
     }
     // Add moduleNames to ntic.json
     const modulesToAdd = dependencyGraph.order.map((name) => moduleMetadataMap.get(name));
+    // Update ntic metadata file
     await addModulesToNtic(projectRoot, modulesToAdd);
     // Update project dependencies
     await (0, common_1.updateProjectDependencies)(projectRoot, dependencyGraph);

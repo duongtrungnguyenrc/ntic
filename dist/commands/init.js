@@ -46,11 +46,12 @@ const version_1 = require("../utils/version");
 const format_1 = require("../utils/format");
 function initCommand(program) {
     program
-        .command("init [version]")
+        .command("init [registry]")
         .description("Initialize NestJS project for module integration")
+        .option("-r, --registry <registry>", "Selection modules registry (default: default registry)")
         .option("-p, --project <path>", "Path to NestJS project (default: current directory)")
         .option("-a, --alias <alias>", "Path alias for lib directory (default: @lib)", "@lib")
-        .action(async (versionArg, options) => {
+        .action(async (registry, options) => {
         try {
             console.log(chalk_1.default.cyan("\nNestJS Project Initialization\n"));
             const projectRoot = options.project ? path.resolve(options.project) : process.cwd();
@@ -60,7 +61,7 @@ function initCommand(program) {
             console.log(chalk_1.default.green(`✓ NestJS project detected at ${nestJSProjectConfig.projectRoot}\n`));
             // Determine NestJS version
             console.log(chalk_1.default.blue("Detecting NestJS version..."));
-            let nestJsVersion = await (0, version_1.detectNestJsVersion)(projectRoot, versionArg);
+            let nestJsVersion = await (0, version_1.detectNestJsVersion)(projectRoot);
             console.log(chalk_1.default.green(`NestJS Version: v${nestJsVersion}\n`));
             // Ask for confirmation and options
             const answers = await inquirer_1.default.prompt([

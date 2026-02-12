@@ -1,8 +1,12 @@
-import { NticConfig, ModuleMetadata, NestJSProjectConfig, InstallationStats } from "../types/module";
+import { NticProjectConfig, ModuleMetadata, NestJSProjectConfig, InstallationStats, RegistryConfig, StorageType } from "../types/module";
+import { StorageClient } from "../types/interface";
+export declare function getStorageStrategy(type: StorageType): Promise<StorageClient>;
+export declare function setupGithubStorage(cliConfig: RegistryConfig, name: string): Promise<void>;
+export declare function setupGitlabStorage(cliConfig: RegistryConfig, name: string): Promise<void>;
 export declare function getNticPath(projectRoot: string): Promise<string>;
-export declare function loadNticConfig(projectRoot?: string): Promise<NticConfig | null>;
-export declare function createNticConfig(projectRoot: string, nestJsVersion: string): Promise<NticConfig>;
-export declare function saveNticConfig(projectRoot: string, config: NticConfig): Promise<void>;
+export declare function loadNticConfig(projectRoot?: string): Promise<NticProjectConfig | null>;
+export declare function createNticConfig(projectRoot: string, nestJsVersion: string): Promise<NticProjectConfig>;
+export declare function saveNticConfig(projectRoot: string, config: NticProjectConfig): Promise<void>;
 export declare function addModulesToNtic(projectRoot: string, modules: ModuleMetadata[]): Promise<void>;
 export declare function getNestJsVersionFromNtic(projectRoot: string): Promise<string | null>;
 export declare function getInstallationPath(config: NestJSProjectConfig, place: ModuleMetadata["installationPlace"]): string;

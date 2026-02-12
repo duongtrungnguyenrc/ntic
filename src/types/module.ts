@@ -1,4 +1,5 @@
 export type PlainObject = Record<string, any>;
+export type StorageType = "github" | "gitlab";
 
 export type ModuleMetadata = {
    name: string;
@@ -15,8 +16,8 @@ export type ModuleMetadata = {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
       peerDependencies?: Record<string, string>;
-   }
-}
+   };
+};
 
 export type EnvironmentVariable = {
    name: string;
@@ -24,7 +25,7 @@ export type EnvironmentVariable = {
    required: boolean;
    defaultValue?: string;
    example?: string;
-}
+};
 
 export type NestJSProjectConfig = {
    projectRoot: string;
@@ -33,30 +34,28 @@ export type NestJSProjectConfig = {
    tsconfigPath: string;
    envPath: string;
    envExamplePath: string;
-}
+};
 
-export type CLIConfig = {
-   gitlabToken?: string;
+export type RegistryConfig = {
+   type: StorageType;
+   username?: string;
    gitlabUrl?: string;
-   sshKey?: string;
-   repositoryUrl?: string;
-   modulesRegistry?: string;
-   defaultNestJsVersion?: string;
-}
+   accessToken?: string;
+   repositoryId?: string;
+};
 
-export type NticConfig = {
+export type NticProjectConfig = {
    version: string;
    modules: ModuleMetadata[];
    createdAt: string;
    updatedAt: string;
-}
+};
 
-export type VersionInfo = {
+export type CacheMetadata = {
    version: string;
-   nestJsVersion: string;
    latestCommit?: string;
    cachedAt?: string;
-}
+};
 
 export type DependencyGraph = {
    modules: Map<string, ModuleMetadata>;
@@ -71,11 +70,3 @@ export type InstallationStats = {
    invisibleModules: ModuleMetadata[];
    visibleAvailableModules: ModuleMetadata[];
 };
-
-// Command Options
-
-export type AddCommandOptions = {
-   storage: string;
-   project: string;
-   modules: string;
-}

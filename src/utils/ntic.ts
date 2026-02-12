@@ -4,31 +4,65 @@ import * as fs from "fs-extra";
 import chalk from "chalk";
 
 import {
-   NticConfig,
+   NticProjectConfig,
    ModuleMetadata,
    NestJSProjectConfig,
    InstallationStats,
    DependencyGraph,
    PlainObject,
+   RegistryConfig, StorageType,
 } from "../types/module";
 import { resolveDependencies, updateNestCli, updateProjectDependencies } from "./common";
 import { detectNestJSProject, updateEnvironmentVariables } from "./nestjs";
 import { detectNestJsVersion, normalizeVersion } from "./version";
 import { ensureLatestCache, listCachedModules } from "./cache";
+import { createGitHubClient, GitHubClient } from "./github";
+import { createGitLabClient, GitLabClient } from "./gitlab";
+import { StorageClient } from "../types/interface";
+import { saveConfig } from "./config";
 
 const NTIC_FILE = "ntic.json";
+
+export async function getStorageStrategy(type: StorageType): Promise<StorageClient> {
+   switch (type) {
+      case "github": return createGitHubClient();
+      case "gitlab": return createGitLabClient();
+   }
+}
+
+export async function setupGithubStorage(cliConfig: RegistryConfig, name: string): Promise<void> {
+   const client = new GitHubClient();
+
+   if (!cliConfig.accessToken) throw new Error("Missing Github access token");
+
+   // Validate token
+   const username: string = await client.authenticate(cliConfig.accessToken);
+
+   await saveConfig({ ...cliConfig, username }, name);
+}
+
+export async function setupGitlabStorage(cliConfig: RegistryConfig, name: string): Promise<void> {
+   const client = new GitLabClient(cliConfig.gitlabUrl);
+
+   if (!cliConfig.accessToken) throw new Error("Missing Gitlab access token");
+
+   // Validate token
+   await client.authenticate(cliConfig.accessToken);
+
+   await saveConfig(cliConfig, name);
+}
 
 export async function getNticPath(projectRoot: string): Promise<string> {
    return path.join(projectRoot, NTIC_FILE);
 }
 
-export async function loadNticConfig(projectRoot: string = process.cwd()): Promise<NticConfig | null> {
+export async function loadNticConfig(projectRoot: string = process.cwd()): Promise<NticProjectConfig | null> {
    try {
       const nticPath: string = await getNticPath(projectRoot);
 
       if (await fs.pathExists(nticPath)) {
          const content = await fs.readJson(nticPath);
-         return content as NticConfig;
+         return content as NticProjectConfig;
       }
 
       return null;
@@ -38,8 +72,8 @@ export async function loadNticConfig(projectRoot: string = process.cwd()): Promi
    }
 }
 
-export async function createNticConfig(projectRoot: string, nestJsVersion: string): Promise<NticConfig> {
-   const nticConfig: NticConfig = {
+export async function createNticConfig(projectRoot: string, nestJsVersion: string): Promise<NticProjectConfig> {
+   const nticConfig: NticProjectConfig = {
       version: nestJsVersion,
       modules: [],
       createdAt: new Date().toISOString(),
@@ -50,7 +84,7 @@ export async function createNticConfig(projectRoot: string, nestJsVersion: strin
    return nticConfig;
 }
 
-export async function saveNticConfig(projectRoot: string, config: NticConfig): Promise<void> {
+export async function saveNticConfig(projectRoot: string, config: NticProjectConfig): Promise<void> {
    try {
       const nticPath: string = await getNticPath(projectRoot);
       config.updatedAt = new Date().toISOString();
@@ -63,7 +97,7 @@ export async function saveNticConfig(projectRoot: string, config: NticConfig): P
 
 export async function addModulesToNtic(projectRoot: string, modules: ModuleMetadata[]): Promise<void> {
    try {
-      let nticConfig: NticConfig | null = await loadNticConfig(projectRoot);
+      let nticConfig: NticProjectConfig | null = await loadNticConfig(projectRoot);
 
       if (!nticConfig) {
          throw new Error("ntic.json not found. Run init first.");
@@ -87,7 +121,7 @@ export async function addModulesToNtic(projectRoot: string, modules: ModuleMetad
 
 export async function getNestJsVersionFromNtic(projectRoot: string): Promise<string | null> {
    try {
-      const nticConfig: NticConfig | null = await loadNticConfig(projectRoot);
+      const nticConfig: NticProjectConfig | null = await loadNticConfig(projectRoot);
 
       return nticConfig?.version || null;
    } catch (error) {
@@ -111,7 +145,7 @@ export async function getInstalledModules(
    config: NestJSProjectConfig,
    moduleNames?: string[],
 ): Promise<ModuleMetadata[]> {
-   const nticConfig: NticConfig | null = await loadNticConfig();
+   const nticConfig: NticProjectConfig | null = await loadNticConfig();
 
    if (!nticConfig) {
       throw new Error("Ntic configuration not found. Please run `ntic init`");
@@ -221,13 +255,17 @@ export async function installModules(
    // Add moduleNames to ntic.json
    const modulesToAdd: ModuleMetadata[] = dependencyGraph.order.map((name: string) => moduleMetadataMap.get(name)!);
 
+   // Update ntic metadata file
    await addModulesToNtic(projectRoot, modulesToAdd);
 
    // Update project dependencies
    await updateProjectDependencies(projectRoot, dependencyGraph);
 
    // Update nest-cli.json
-   const nestCliOverrides: (PlainObject | undefined)[] = modulesToAdd.map((metadata: ModuleMetadata) => metadata.nestCliOverride);
+   const nestCliOverrides: (PlainObject | undefined)[] = modulesToAdd.map(
+      (metadata: ModuleMetadata) => metadata.nestCliOverride,
+   );
+
    await updateNestCli(projectRoot, nestCliOverrides);
 
    return dependencyGraph.order;
