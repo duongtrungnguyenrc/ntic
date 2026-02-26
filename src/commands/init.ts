@@ -4,11 +4,17 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 
 import { detectNestJSProject, ensureLibDirectory, setupPathAlias, updateEnvironmentVariables } from "../utils/nestjs";
-import { createNticConfig, installAutoInstallableModules } from "../utils/ntic";
+import {
+   createNticConfig,
+   installAutoInstallableModules,
+   normalizeAppStructure,
+   rebuildMainWithImportsAndAppConfig,
+} from "../utils/ntic";
 import { StorageType, NestJSProjectConfig } from "../types/module";
 import { detectNestJsVersion } from "../utils/version";
 import { InitCommandOptions } from "../types/command";
 import { setupPrettier } from "../utils/format";
+import { ensureLatestCache } from "../utils/cache";
 
 export function initCommand(program: Command): void {
    program
@@ -62,6 +68,9 @@ export function initCommand(program: Command): void {
                return;
             }
 
+            // Ensure latest cache
+            await ensureLatestCache(nestJsVersion);
+
             // Setup project structure
             console.log(chalk.blue("\nSetting up project structure..."));
             await ensureLibDirectory(nestJSProjectConfig);
@@ -70,6 +79,12 @@ export function initCommand(program: Command): void {
             // Setup prettier
             console.log(chalk.blue("\nSetting up prettier format..."));
             await setupPrettier();
+
+            // Normalize app
+            await normalizeAppStructure(projectRoot);
+
+            // Setup main content
+            await rebuildMainWithImportsAndAppConfig(projectRoot, nestJsVersion);
 
             // Initialize environment files
             await updateEnvironmentVariables(

@@ -1,5 +1,7 @@
 import { NticProjectConfig, ModuleMetadata, NestJSProjectConfig, InstallationStats, RegistryConfig, StorageType } from "../types/module";
 import { StorageClient } from "../types/interface";
+export declare function normalizeAppStructure(projectRoot: string): Promise<void>;
+export declare function rebuildMainWithImportsAndAppConfig(projectRoot: string, version: string): Promise<void>;
 export declare function getStorageStrategy(type: StorageType): Promise<StorageClient>;
 export declare function setupGithubStorage(cliConfig: RegistryConfig, name: string): Promise<void>;
 export declare function setupGitlabStorage(cliConfig: RegistryConfig, name: string): Promise<void>;

@@ -3,7 +3,6 @@ export type StorageType = "github" | "gitlab";
 
 export type ModuleMetadata = {
    name: string;
-   version: string;
    description?: string;
    environmentVariables?: EnvironmentVariable[];
    installationPlace?: "src" | "lib" | "src-root";
@@ -11,7 +10,6 @@ export type ModuleMetadata = {
    installWhenInit?: boolean;
    nestCliOverride?: PlainObject;
    visibility?: boolean;
-
    packageJsonOverride?: {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;

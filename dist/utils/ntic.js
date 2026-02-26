@@ -36,6 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizeAppStructure = normalizeAppStructure;
+exports.rebuildMainWithImportsAndAppConfig = rebuildMainWithImportsAndAppConfig;
 exports.getStorageStrategy = getStorageStrategy;
 exports.setupGithubStorage = setupGithubStorage;
 exports.setupGitlabStorage = setupGitlabStorage;
@@ -51,6 +53,7 @@ exports.moduleExists = moduleExists;
 exports.installModules = installModules;
 exports.installAutoInstallableModules = installAutoInstallableModules;
 exports.getInstallationStats = getInstallationStats;
+const ts_morph_1 = require("ts-morph");
 const process = __importStar(require("node:process"));
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
@@ -61,8 +64,135 @@ const version_1 = require("./version");
 const cache_1 = require("./cache");
 const github_1 = require("./github");
 const gitlab_1 = require("./gitlab");
+const constants_1 = require("../constants");
 const config_1 = require("./config");
-const NTIC_FILE = "ntic.json";
+async function normalizeAppStructure(projectRoot) {
+    const srcDir = path.join(projectRoot, "src");
+    const appDir = path.join(srcDir, "app");
+    await fs.ensureDir(appDir);
+    const files = await fs.readdir(srcDir);
+    const movedFiles = [];
+    for (const file of files) {
+        if (/^app\..*\.ts$/.test(file)) {
+            const oldPath = path.join(srcDir, file);
+            const newPath = path.join(appDir, file);
+            if (!(await fs.pathExists(newPath))) {
+                await fs.move(oldPath, newPath);
+                console.log(`✓ Moved ${file} → src/app/`);
+            }
+            movedFiles.push(file);
+        }
+    }
+    await createAppBarrelFile(appDir, movedFiles);
+}
+async function createAppBarrelFile(appDir, movedFiles) {
+    const barrelPath = path.join(appDir, "index.ts");
+    const existingExports = (await fs.pathExists(barrelPath))
+        ? fs.readFileSync(barrelPath, "utf8")
+        : "";
+    const exportLines = [];
+    for (const file of movedFiles) {
+        const fileNameWithoutExt = file.replace(".ts", "");
+        const exportStatement = `export * from "./${fileNameWithoutExt}";`;
+        if (!existingExports.includes(exportStatement)) {
+            exportLines.push(exportStatement);
+        }
+    }
+    if (exportLines.length > 0) {
+        const finalContent = existingExports.trim() + "\n" + exportLines.join("\n") + "\n";
+        await fs.writeFile(barrelPath, finalContent.trimStart());
+        console.log("✓ Barrel file updated at src/app/index.ts");
+    }
+}
+function mergeImports(current, boiler) {
+    for (const oldImport of current.getImportDeclarations()) {
+        const moduleSpecifier = oldImport.getModuleSpecifierValue();
+        const existing = boiler
+            .getImportDeclarations()
+            .find(i => i.getModuleSpecifierValue() === moduleSpecifier);
+        if (existing) {
+            mergeNamedImports(existing, oldImport);
+        }
+        else {
+            boiler.addImportDeclaration({
+                moduleSpecifier,
+                namedImports: oldImport.getNamedImports().map(n => n.getName()),
+                defaultImport: oldImport.getDefaultImport()?.getText(),
+                namespaceImport: oldImport.getNamespaceImport()?.getText(),
+            });
+        }
+    }
+}
+function mergeNamedImports(target, source) {
+    const existingNames = new Set(target.getNamedImports().map(n => n.getName()));
+    for (const named of source.getNamedImports()) {
+        if (!existingNames.has(named.getName())) {
+            target.addNamedImport(named.getName());
+        }
+    }
+}
+function extractAppOverrideStatements(source) {
+    const bootstrap = source.getFunction("bootstrap");
+    const body = bootstrap?.getBody()?.asKindOrThrow(ts_morph_1.SyntaxKind.Block);
+    if (!body)
+        return [];
+    const results = [];
+    for (const stmt of body.getStatements()) {
+        const call = stmt.getFirstDescendantByKind(ts_morph_1.SyntaxKind.CallExpression);
+        if (!call)
+            continue;
+        const expression = call.getExpression();
+        if (ts_morph_1.Node.isPropertyAccessExpression(expression)) {
+            const objectName = expression.getExpression().getText();
+            const method = expression.getName();
+            if (objectName === "app" && method !== "listen") {
+                results.push(stmt.getText());
+            }
+        }
+    }
+    return results;
+}
+function findOverrideMarkerIndex(body) {
+    const statementsWithComments = body.getStatementsWithComments();
+    for (let i = 0; i < statementsWithComments.length; i++) {
+        if (statementsWithComments[i].getText().includes("<ntic:override>")) {
+            return i;
+        }
+    }
+    throw new Error("Cannot find '// <ntic:override>' comment in boilerplate");
+}
+function injectOverrideStatements(boiler, overrideStatements) {
+    const bootstrap = boiler.getFunction("bootstrap");
+    const body = bootstrap?.getBody()?.asKindOrThrow(ts_morph_1.SyntaxKind.Block);
+    if (!body) {
+        throw new Error("Boilerplate bootstrap() not found");
+    }
+    const markerIndex = findOverrideMarkerIndex(body);
+    for (const stmtText of overrideStatements) {
+        const exists = body
+            .getStatements()
+            .some((s) => s.getText() === stmtText);
+        if (!exists) {
+            body.insertStatements(markerIndex + 1, stmtText);
+        }
+    }
+}
+async function rebuildMainWithImportsAndAppConfig(projectRoot, version) {
+    const cacheDir = await (0, cache_1.getCacheVersionPath)(version);
+    const project = new ts_morph_1.Project({
+        tsConfigFilePath: path.join(projectRoot, "tsconfig.json"),
+    });
+    const currentMain = project.getSourceFileOrThrow("src/main.ts");
+    const boilerMain = project.addSourceFileAtPath(path.join(cacheDir, "src/main.ts"));
+    mergeImports(currentMain, boilerMain);
+    const overrideStatements = extractAppOverrideStatements(currentMain);
+    injectOverrideStatements(boilerMain, overrideStatements);
+    currentMain.replaceWithText(boilerMain.getFullText());
+    const updated = project.getSourceFileOrThrow("src/main.ts");
+    updated.organizeImports();
+    await project.save();
+    console.log(chalk_1.default.cyan("✓ main.ts rebuilt and overrides inserted correctly"));
+}
 async function getStorageStrategy(type) {
     switch (type) {
         case "github": return (0, github_1.createGitHubClient)();
@@ -86,7 +216,7 @@ async function setupGitlabStorage(cliConfig, name) {
     await (0, config_1.saveConfig)(cliConfig, name);
 }
 async function getNticPath(projectRoot) {
-    return path.join(projectRoot, NTIC_FILE);
+    return path.join(projectRoot, constants_1.NTIC_METADATA_FILE);
 }
 async function loadNticConfig(projectRoot = process.cwd()) {
     try {

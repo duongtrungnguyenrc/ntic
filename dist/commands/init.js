@@ -44,6 +44,7 @@ const nestjs_1 = require("../utils/nestjs");
 const ntic_1 = require("../utils/ntic");
 const version_1 = require("../utils/version");
 const format_1 = require("../utils/format");
+const cache_1 = require("../utils/cache");
 function initCommand(program) {
     program
         .command("init [registry]")
@@ -90,6 +91,8 @@ function initCommand(program) {
                 console.log(chalk_1.default.yellow("Initialization cancelled"));
                 return;
             }
+            // Ensure latest cache
+            await (0, cache_1.ensureLatestCache)(nestJsVersion);
             // Setup project structure
             console.log(chalk_1.default.blue("\nSetting up project structure..."));
             await (0, nestjs_1.ensureLibDirectory)(nestJSProjectConfig);
@@ -97,6 +100,10 @@ function initCommand(program) {
             // Setup prettier
             console.log(chalk_1.default.blue("\nSetting up prettier format..."));
             await (0, format_1.setupPrettier)();
+            // Normalize app
+            await (0, ntic_1.normalizeAppStructure)(projectRoot);
+            // Setup main content
+            await (0, ntic_1.rebuildMainWithImportsAndAppConfig)(projectRoot, nestJsVersion);
             // Initialize environment files
             await (0, nestjs_1.updateEnvironmentVariables)(nestJSProjectConfig, [
                 {

@@ -49,23 +49,22 @@ const simple_git_1 = require("simple-git");
 const path = __importStar(require("node:path"));
 const fs = __importStar(require("fs-extra"));
 const chalk_1 = __importDefault(require("chalk"));
-const node_os_1 = __importDefault(require("node:os"));
+const constants_1 = require("../constants");
 const config_1 = require("./config");
 const ntic_1 = require("./ntic");
-const NTIC_CACHE_DIR = path.join(node_os_1.default.homedir(), ".ntic");
-const CACHE_METADATA_FILE = "cache-metadata.json";
+const version_1 = require("./version");
 async function ensureCacheDir() {
-    await fs.ensureDir(NTIC_CACHE_DIR);
-    return NTIC_CACHE_DIR;
+    await fs.ensureDir(constants_1.NTIC_CACHE_DIR);
+    return constants_1.NTIC_CACHE_DIR;
 }
-async function getCacheVersionPath(nestJsVersion) {
+async function getCacheVersionPath(version) {
     const cacheDir = await ensureCacheDir();
-    return path.join(cacheDir, `v${nestJsVersion}`);
+    return path.join(cacheDir, `v${(0, version_1.normalizeVersion)(version)}`);
 }
 async function getCacheMetadata(nestJsVersion) {
     try {
         const versionPath = await getCacheVersionPath(nestJsVersion);
-        const metadataPath = path.join(versionPath, CACHE_METADATA_FILE);
+        const metadataPath = path.join(versionPath, constants_1.CACHE_METADATA_FILE);
         if (await fs.pathExists(metadataPath)) {
             return await fs.readJson(metadataPath);
         }
@@ -80,7 +79,7 @@ async function saveCacheMetadata(nestJsVersion, metadata) {
     try {
         const versionPath = await getCacheVersionPath(nestJsVersion);
         await fs.ensureDir(versionPath);
-        const metadataPath = path.join(versionPath, CACHE_METADATA_FILE);
+        const metadataPath = path.join(versionPath, constants_1.CACHE_METADATA_FILE);
         metadata.cachedAt = new Date().toISOString();
         await fs.writeJson(metadataPath, metadata, { spaces: 2 });
     }
@@ -191,7 +190,7 @@ async function listCachedModules(nestJsVersion) {
             const fullPath = path.join(modulesPath, entry);
             const stat = await fs.stat(fullPath);
             if (stat.isDirectory()) {
-                const metadataPath = path.join(fullPath, "module.json");
+                const metadataPath = path.join(fullPath, constants_1.MODULE_METADATA_FILE);
                 if (await fs.pathExists(metadataPath)) {
                     const metadata = await fs.readJson(metadataPath);
                     modules.push(metadata);
@@ -213,13 +212,13 @@ async function clearCache(nestJsVersion) {
             console.log(chalk_1.default.green(`✓ Cache for v${nestJsVersion} cleared`));
         }
         else {
-            if (!(await fs.pathExists(NTIC_CACHE_DIR)))
+            if (!(await fs.pathExists(constants_1.NTIC_CACHE_DIR)))
                 return;
-            const entries = await fs.readdir(NTIC_CACHE_DIR);
+            const entries = await fs.readdir(constants_1.NTIC_CACHE_DIR);
             for (const entry of entries) {
                 if (entry === "config.json")
                     continue;
-                await fs.remove(path.join(NTIC_CACHE_DIR, entry));
+                await fs.remove(path.join(constants_1.NTIC_CACHE_DIR, entry));
             }
             console.log(chalk_1.default.green(`✓ All caches cleared`));
         }

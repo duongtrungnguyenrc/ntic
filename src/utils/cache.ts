@@ -3,24 +3,22 @@ import * as path from "node:path";
 import { Stats } from "fs-extra";
 import * as fs from "fs-extra";
 import chalk from "chalk";
-import os from "node:os";
 
+import { CACHE_METADATA_FILE, MODULE_METADATA_FILE, NTIC_CACHE_DIR } from "../constants";
 import { ModuleMetadata, CacheMetadata, RegistryConfig } from "../types/module";
 import { getConfigValue, getRegistryConfig } from "./config";
 import { StorageClient } from "../types/interface";
 import { getStorageStrategy } from "./ntic";
-
-const NTIC_CACHE_DIR: string = path.join(os.homedir(), ".ntic");
-const CACHE_METADATA_FILE = "cache-metadata.json";
+import { normalizeVersion } from "./version";
 
 export async function ensureCacheDir(): Promise<string> {
    await fs.ensureDir(NTIC_CACHE_DIR);
    return NTIC_CACHE_DIR;
 }
 
-export async function getCacheVersionPath(nestJsVersion: string): Promise<string> {
+export async function getCacheVersionPath(version: string): Promise<string> {
    const cacheDir: string = await ensureCacheDir();
-   return path.join(cacheDir, `v${nestJsVersion}`);
+   return path.join(cacheDir, `v${normalizeVersion(version)}`);
 }
 
 export async function getCacheMetadata(nestJsVersion: string): Promise<CacheMetadata | null> {
@@ -182,7 +180,7 @@ export async function listCachedModules(nestJsVersion: string): Promise<ModuleMe
          const stat: Stats = await fs.stat(fullPath);
 
          if (stat.isDirectory()) {
-            const metadataPath: string = path.join(fullPath, "module.json");
+            const metadataPath: string = path.join(fullPath, MODULE_METADATA_FILE);
 
             if (await fs.pathExists(metadataPath)) {
                const metadata: ModuleMetadata = await fs.readJson(metadataPath);

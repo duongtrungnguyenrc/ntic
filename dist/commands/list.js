@@ -55,7 +55,7 @@ function listCommand(program) {
                 console.log("  Installed modules:");
                 for (const metadata of installedModules) {
                     try {
-                        console.log(chalk_1.default.green(`\n  ✓ ${metadata.name}@${metadata.version}`));
+                        console.log(chalk_1.default.green(`\n  ✓ ${metadata.name}`));
                         if (metadata.description) {
                             console.log(chalk_1.default.gray(`    Description: ${metadata.description}`));
                         }
@@ -71,7 +71,7 @@ function listCommand(program) {
             if (visibleAvailableModules.length) {
                 console.log("\n  Available to install modules:");
                 for (const metadata of visibleAvailableModules) {
-                    console.log(chalk_1.default.blue(`\n  ◇ ${metadata.name}@${metadata.version}`));
+                    console.log(chalk_1.default.blue(`\n  ◇ ${metadata.name}`));
                     if (metadata.description) {
                         console.log(chalk_1.default.gray(`    Description: ${metadata.description}`));
                     }

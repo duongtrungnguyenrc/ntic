@@ -2,7 +2,6 @@ export type PlainObject = Record<string, any>;
 export type StorageType = "github" | "gitlab";
 export type ModuleMetadata = {
     name: string;
-    version: string;
     description?: string;
     environmentVariables?: EnvironmentVariable[];
     installationPlace?: "src" | "lib" | "src-root";

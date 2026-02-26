@@ -66,6 +66,7 @@ export async function setupPathAlias(config: NestJSProjectConfig, alias: string 
       const libRelativePath: string = path.relative(path.dirname(config.tsconfigPath), config.libDir);
 
       tsconfigContent.compilerOptions.paths[`${alias}/*`] = [`${libRelativePath}/*`];
+      tsconfigContent.compilerOptions.paths[`@*`] = ["./src/*"];
 
       await fs.writeJson(config.tsconfigPath, tsconfigContent, { spaces: 2 });
       console.log(chalk.green(`✓ Path alias "${alias}" configured in tsconfig.json`));

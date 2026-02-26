@@ -93,6 +93,7 @@ async function setupPathAlias(config, alias = "@lib") {
         }
         const libRelativePath = path.relative(path.dirname(config.tsconfigPath), config.libDir);
         tsconfigContent.compilerOptions.paths[`${alias}/*`] = [`${libRelativePath}/*`];
+        tsconfigContent.compilerOptions.paths[`@*`] = ["./src/*"];
         await fs.writeJson(config.tsconfigPath, tsconfigContent, { spaces: 2 });
         console.log(chalk_1.default.green(`✓ Path alias "${alias}" configured in tsconfig.json`));
     }

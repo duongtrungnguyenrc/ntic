@@ -23,7 +23,7 @@ export function listCommand(program: Command): void {
 
                for (const metadata of installedModules) {
                   try {
-                     console.log(chalk.green(`\n  ✓ ${metadata.name}@${metadata.version}`));
+                     console.log(chalk.green(`\n  ✓ ${metadata.name}`));
                      if (metadata.description) {
                         console.log(chalk.gray(`    Description: ${metadata.description}`));
                      }
@@ -40,7 +40,7 @@ export function listCommand(program: Command): void {
                console.log("\n  Available to install modules:");
 
                for (const metadata of visibleAvailableModules) {
-                  console.log(chalk.blue(`\n  ◇ ${metadata.name}@${metadata.version}`));
+                  console.log(chalk.blue(`\n  ◇ ${metadata.name}`));
 
                   if (metadata.description) {
                      console.log(chalk.gray(`    Description: ${metadata.description}`));
